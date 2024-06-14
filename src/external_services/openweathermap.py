@@ -10,7 +10,7 @@ class OpenWeatherMap():
         'endpointURI': 'http://api.openweathermap.org/data/2.5/forecast',
         'documentationURI': 'https://openweathermap.org/forecast5',
         'authorization': 'key',
-        'authData': '59b66f5817f09ae1da0f5e496f1ab132',
+        'authData': '',
         'requestSchema': {},
         'dataExpiration': 3000,
         'dataProximityRadius': 100,
@@ -32,7 +32,7 @@ class OpenWeatherMap():
 
   async def forecast5days(self, lat, lon):
 
-    openWeatherMapsKey = '59b66f5817f09ae1da0f5e496f1ab132'
+    openWeatherMapsKey = ''
     url = f'{self.properties["endpointURI"]}?units=metric&lat={lat}&lon={lon}&appid={openWeatherMapsKey}'
     async with httpx.AsyncClient() as client:
       r = await client.get(url)
