@@ -43,14 +43,6 @@ USER openagri
 ARG BUILD_VERSION
 ARG BUILD_SHA
 ARG BUILD_DATE
-ENV USER_ID=$USER_ID \
-    GROUP_ID=$GROUP_ID \
-    SERVER_PORT=8000 \
-    BUILD_VERSION=$BUILD_VERSION \
-    BUILD_SHA=$BUILD_SHA \
-    BUILD_DATE=$BUILD_DATE \
-    PROJECT_DIR=/weather-service \
-    DATABASE_URL=mongodb://root:root@mongodb:27017 \
-    PYTHONPATH=/weather-service
+
 
 CMD ["./run.sh", "prod"]

@@ -1,7 +1,9 @@
 from enum import Enum
+from uuid import uuid4, UUID
 from typing import Optional, Any, List
 
 from beanie import Document
+from pydantic import Field
 
 
 class PointTypeEnum(str, Enum):
@@ -20,6 +22,7 @@ class GeoJSONTypeEnum(str, Enum):
 
 
 class GeoJSON(Document):
+    id: UUID = Field(default_factory=uuid4)
     type: GeoJSONTypeEnum
     coordinates: List
 
@@ -28,7 +31,7 @@ class GeoJSON(Document):
 
 
 class Point(Document):
-    id: str
+    id: UUID = Field(default_factory=uuid4)
     title: Optional[str] = None
     type: PointTypeEnum
     location: Optional[GeoJSON] = None
