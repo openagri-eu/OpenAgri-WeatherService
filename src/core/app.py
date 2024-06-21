@@ -2,11 +2,12 @@ from functools import partial
 import fastapi
 
 from motor.motor_asyncio import AsyncIOMotorClient
-from beanie import init_beanie
+from beanie import init_beanie, Document
 
 from src.core import config
+from src import utils
 from src.core.dao import Dao
-from src.core.routes import router
+from src.routes import router
 from src.models.point import Point, GeoJSON
 from src.external_services.openweathermap import OpenWeatherMap
 
@@ -27,10 +28,11 @@ class Application(fastapi.FastAPI):
                 await app.db.admin.command('ping')
                 print("Pinged your deployment. You successfully connected to MongoDB!")
                 # Init beanie with the Product document class
-                await init_beanie(database=app.db.get_database(config.DATABASE_NAME), document_models=[Point, GeoJSON])
+                await init_beanie(
+                    database=app.db.get_database(config.DATABASE_NAME),
+                    document_models=utils.load_classes('**/models/**.py', (Document,))
+                )
                 dao = Dao()
-                await dao.add_point('')
-                print("Point added!")
             except Exception as e:
                 print(e)
 

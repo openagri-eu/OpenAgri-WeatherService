@@ -1,6 +1,11 @@
 import random
 from datetime import datetime, timezone
+from typing import List
+import uuid
 
+from src import utils
+from src.models.point import Point
+from src.models.prediction import Prediction
 from src.utils import deepcopy_dict, number_to_base32_string
 
 
@@ -70,73 +75,75 @@ class InteroperabilitySchema:
         # "@type": "predictionCollection",
         '@type': 'farmtopia:PredictionCollection',
         'spatialEntity': '', # "POIorROI_ID",
-        property: '', # "Temperature",
+        'measurement': '', # "Temperature",
         'unit': '', # "Celsius",
-        'items': [
-            item_schema
-        ],
-    },
+        'items': []
+    }
 
-    jsonld_schema = {
+    schema = {
+        '@context': context_schema,
         '@id': '',
-        'collections': [
-            collection_schema
-        ]
+        'collections': []
     }
 
     property_schema = { # TODO add these to data_specifications objects on defaults.json
         'ambient_temperature': {
-          'property': 'Temperature',
+          'measurement': 'Temperature',
           'unit': 'Celsius',
         },
         'ambient_humidity': {
-          'property': 'RelativeHumidity',
+          'measurement': 'RelativeHumidity',
           'unit': 'Percent',
         },
         'wind_speed': {
-          'property': 'WindSpeed',
+          'measurement': 'WindSpeed',
           'unit': 'MeterPerSecond',
         },
         'wind_direction': {
-          'property': 'WindDirection',
+          'measurement': 'WindDirection',
           'unit': 'Degree',
         },
         'precipitation': {
-          'property': 'Precipitation',
+          'measurement': 'Precipitation',
           'unit': 'Millimetre',
         },
     }
 
     @classmethod
-    def serialize(cls, data: dict) -> dict:
-        context = cls.context_schema
+    def serialize(cls, predictions: List[Prediction], spatial_entity: Point) -> dict:
         collection_schema = cls.collection_schema
         item_schema = cls.item_schema
+        property_schema = cls.property_schema
 
-        semantic_data = {}
-        spatial_entity = data.keys[0] # spatial ID ATM
-        collection_length = 0
-        serialized_collections = []
+        semantic_data = utils.deepcopy_dict(cls.schema)
+        spatial_entity = str(spatial_entity.id)
+        collection_idx = 0
+        serialized_collections = {}
+        try:
+            for pred in predictions:
+                collection_key = property_schema[pred.measurement_type]['measurement']
+                item = deepcopy_dict(item_schema)
+                item['@id'] = str(pred.id)
+                item['timestamp'] = str(pred.timestamp)
+                item['value'] = pred.value
+                if collection_key in serialized_collections:
+                    serialized_collections[collection_key]['items'].append(item)
+                    continue
 
-        for prop in data[spatial_entity].keys():
-            serialized_items = []
-            for timestamp, value in data[spatial_entity][prop].values():
-                obj = deepcopy_dict(item_schema)
-                obj['@id'] = f'prediction/{spatial_entity}/{prop}/{timestamp}' # TOCHANGE with just id?
-                obj.timestamp = datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat()
-                obj.value = float(value)
-                serialized_items.append(obj)
+                collection = utils.deepcopy_dict(collection_schema)
+                collection['@id'] = f'_:collection_{collection_idx}'
+                collection_idx += 1
+                collection['spatialEntity'] = spatial_entity
+                collection['measurement'] = collection_key
+                collection['unit'] = property_schema[pred.measurement_type]['unit']
+                collection['items'].append(item)
+                serialized_collections[collection_key] = collection
 
-            obj = {**collection_schema} # TOCHANGE
-            obj['@id'] = f'_:collection_{collection_length}'
-            collection_length += 1
-            obj.spatialEntity = spatial_entity
-            obj.property = property_schema[prop].property
-            obj.unit = property_schema[prop].unit
-            obj.items = serialized_items
-            serialized_collections.append(obj)
+            semantic_data['@id'] = str(uuid.uuid4())
+            print(list(serialized_collections.values()))
+            semantic_data['collections'].extend(list(serialized_collections.values()))
 
-        semantic_data['@id'] = number_to_base32_string(random.random())[:7] # "uniqueRequestID1"
-        semantic_data.collections = serialized_collections
-        return { **context }
-
+            return semantic_data
+            print(semantic_data)
+        except Exception as e:
+            print(e)
