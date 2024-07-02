@@ -3,9 +3,15 @@ import functools
 import glob
 from importlib import import_module
 import inspect
+import logging
 import os
 import struct
 import copy
+
+import httpx
+
+
+logger = logging.getLogger(__name__)
 
 
 def deepcopy_dict(d: dict) -> dict:
@@ -17,6 +23,13 @@ def extract_value_from_dict_path(d: dict, path: list):
                 path,
                 d
             )
+
+async def http_get(url: str) -> dict:
+    async with httpx.AsyncClient() as client:
+        r = await client.get(url)
+        r.raise_for_status()
+        return r.json()
+
 
 def number_to_base32_string(num: float) -> str:
     '''

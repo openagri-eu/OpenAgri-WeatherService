@@ -1,12 +1,19 @@
-import httpx
+import logging
 
-from beanie.odm.operators.find.logical import And
+import httpx
 
 from src.core import config
 from src import utils
-from src.models.point import Point, GeoJSON, PointTypeEnum, GeoJSONTypeEnum
+from src.core.dao import Dao
+from src.models.point import Point, GeoJSON, GeoJSONTypeEnum
 from src.models.prediction import Prediction
 from src.interoperability import InteroperabilitySchema
+
+
+logger = logging.getLogger(__name__)
+
+class SourceError(Exception):
+   ...
 
 class OpenWeatherMap():
 
@@ -17,8 +24,6 @@ class OpenWeatherMap():
         'dataType': 'weather',
         'endpointURI': 'http://api.openweathermap.org/data/2.5/forecast',
         'documentationURI': 'https://openweathermap.org/forecast5',
-        'authorization': 'key',
-        'requestSchema': {},
         'dataExpiration': 3000,
         'dataProximityRadius': 100,
         'extracted_schema': {
@@ -34,25 +39,49 @@ class OpenWeatherMap():
                 'precipitation': ['rain', '3h'],
             }
         },
-        'swaggerSchema': {},
     }
 
-    async def forecast5day(self, lat: float, lon: float, semantic: bool):
-        point = await Point.find_one(And(Point.location.coordinates == [lat, lon], Point.location.type == GeoJSONTypeEnum.POINT))
-        if point:
-           return point
+    def __init__(self):
+       self.dao = None
 
-        point = await Point(**{'type': PointTypeEnum.POI, 'location': GeoJSON(**{'coordinates': [lat, lon], 'type': GeoJSONTypeEnum.POINT})}).create()
-        url = f'{self.properties["endpointURI"]}?units=metric&lat={lat}&lon={lon}&appid={config.OPENWEATHERMAP_API_KEY}'
-        openweathermap_json = await self.get_openweathermapapi(url)
-        if semantic:
-             return await self.parseForecast5dayResponse(point, openweathermap_json)
-        return openweathermap_json
+    def setup_dao(self, dao: Dao):
+       self.dao = dao
 
-    async def get_openweathermapapi(self, url: str) -> dict:
-       async with httpx.AsyncClient() as client:
-          r = await client.get(url)
-          return r.json()
+    async def get_forecast5day(self, lat: float, lon: float) -> dict:
+        try:
+            predictions = await self.dao.find_predictions_for_point(lat, lon)
+            if predictions:
+                return predictions
+
+            point = await self.dao.create_point(lat, lon)
+            url = f'{self.properties["endpointURI"]}?units=metric&lat={lat}&lon={lon}&appid={config.OPENWEATHERMAP_API_KEY}'
+            openweathermap_json = await utils.http_get(url)
+            predictions = await self.parseForecast5dayResponse(point, openweathermap_json)
+        except httpx.HTTPError as httpe:
+           logger.exception(httpe)
+           raise SourceError(f"Request to {httpe.request.url} was not succesful")
+        except Exception as e:
+           logger.exception(e)
+           raise e
+        else:
+            return predictions
+
+    async def get_interoperable_forecast5day(self, lat: float, lon: float) -> dict:
+        try:
+            predictions = await self.get_forecast5day(lat, lon)
+            point = await self.dao.find_point(lat, lon)
+            jsonld_data = InteroperabilitySchema.serialize(predictions, point)
+        except Exception as e:
+           logger.exception(e)
+           raise e
+
+        return jsonld_data
+
+    async def get_thi_forecast(self, lat: float, lon: float) -> dict:
+       ...
+
+    async def get_current_forecast(self, lat: float, lon: float) -> dict:
+        ...
 
     async def parseForecast5dayResponse(self, point: Point, data: dict) -> dict:
 
@@ -80,9 +109,12 @@ class OpenWeatherMap():
                 extracted_data.append(extracted_element)
 
         except Exception as e:
-            print(str(e))
+            logger.debug("Cannot transform to Linked Data")
+            logger.error(e)
+        else:
+           return predictions
 
-        jsonld_data = InteroperabilitySchema.serialize(predictions, point)
+        # jsonld_data = InteroperabilitySchema.serialize(predictions, point)
 
         # Create prediction documents for each measurement and save them in DB
         # predictions = []
@@ -102,5 +134,5 @@ class OpenWeatherMap():
 
 
 
-        return jsonld_data
+        # return jsonld_data
 

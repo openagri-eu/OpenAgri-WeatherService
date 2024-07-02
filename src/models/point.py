@@ -1,6 +1,6 @@
 from enum import Enum
 from uuid import uuid4, UUID
-from typing import Optional, Any, List
+from typing import Optional, List
 
 from beanie import Document
 from pydantic import Field
@@ -42,15 +42,17 @@ class Point(Document):
 
     class Config:
         use_enum_values = True
-        # json_schema_extra = {
-        #     "example": {
-        #         "fullname": "Abdulazeez Abdulazeez Adeshina",
-        #         "email": "abdul@school.com",
-        #         "course_of_study": "Water resources engineering",
-        #         "year": 4,
-        #         "gpa": "3.76",
-        #     }
-        # }
+        json_schema_extra = {
+            "example": {
+                "id": "bad6cd67-638f-42d8-82b8-d4d191174dd6",
+                "type": "POI",
+                "location": {
+                    "id": "0b1b7964-8f89-465c-a8b2-3d50a53459e0",
+                    "type": "Point",
+                    "location": [39.14367, 45.3123]
+                },
+            }
+        }
 
     class Settings:
         name = "points"
