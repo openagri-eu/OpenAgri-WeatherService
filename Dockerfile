@@ -40,9 +40,9 @@ RUN chown -R $USER_ID:$GROUP_ID /weather-service
 
 USER openagri
 
-ARG BUILD_VERSION
-ARG BUILD_SHA
-ARG BUILD_DATE
-
+ENV USER_ID=$USER_ID \
+    GROUP_ID=$GROUP_ID \
+    PROJECT_DIR=/weather-service \
+    PYTHONPATH=/weather-service
 
 CMD ["./run.sh", "prod"]

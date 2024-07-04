@@ -1,0 +1,31 @@
+version: '3'
+
+
+services:
+  app:
+    build: .
+    depends_on:
+      - mongodb
+    ports:
+      - '8000:8000'
+    env_file:
+      - ./.env
+    environment:
+      LOGGING_LEVEL: ${WEATHER_SRV_LOGGING_LEVEL:-INFO}
+
+  mongodb:
+    image: mongo:4
+    command: mongod
+    ports:
+      - '24252:24252'
+      - '27017:27017'
+    volumes:
+      - mongo_data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: $MONGO_INITDB_ROOT_USERNAME
+      MONGO_INITDB_ROOT_PASSWORD: $MONGO_INITDB_ROOT_PASSWORD
+      MONGO_INITDB_DATABASE: $MONGO_INITDB_DATABASE
+
+volumes:
+  mongo_data:

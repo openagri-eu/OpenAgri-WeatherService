@@ -7,16 +7,12 @@ export PYTHONPATH=$PYTHONPATH:$(pwd)
 run_uvicorn() {
     set -x
     # Uvicorn (ASGI)
-    uvicorn --host 0.0.0.0 --port $SERVER_PORT  'src.main:create_app'
+    uvicorn --host 0.0.0.0 --port $WEATHER_SRV_PORT  'src.main:create_app'
 }
 
 unittest() {
     set -x
     echo "Running unittests"
-    export DATABASE_URL=sqlite:///testing.sqlite
-    export IMAGE_PATH=images/
-    export MODEL_PATH=models/
-    _migrate
     pytest --cov=src/ tests -vvv
     rm -rf testing.sqlite
 }
