@@ -133,7 +133,7 @@ For more info please run the application and read `http://localhost:8000/docs`
 
 ## Contribute
 
-Please contanct maintainer.
+Please contanct the repository maintainer.
 
 ## License
 
