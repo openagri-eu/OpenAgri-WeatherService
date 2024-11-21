@@ -2,6 +2,7 @@ from functools import partial
 import logging
 import fastapi
 from fastapi.openapi.utils import get_openapi
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie, Document
@@ -9,7 +10,8 @@ from beanie import init_beanie, Document
 from src.core import config
 from src import utils
 from src.core.dao import Dao
-from src.routes import router
+from src.api.api import api_router
+from src.api.auth import auth_router
 from src.external_services.openweathermap import OpenWeatherMap
 
 
@@ -23,6 +25,7 @@ class Application(fastapi.FastAPI):
         self.weather_app = self.setup_weather_app()
         self.setup_routes()
         self.setup_openapi()
+        self.setup_middlewares()
 
 
     def setup_dao(self):
@@ -48,7 +51,8 @@ class Application(fastapi.FastAPI):
 
         async def add_router(app: Application):
             logger.debug("Setup routes")
-            app.include_router(router)
+            app.include_router(api_router)
+            app.include_router(auth_router)
             logger.debug("Routes added!")
 
         self.add_event_handler(event_type="startup", func=partial(add_router, app=self))
@@ -79,4 +83,9 @@ class Application(fastapi.FastAPI):
             app.openapi_schema = openapi_schema
 
         self.add_event_handler(event_type="startup", func=partial(add_openapi_schema, app=self))
+        return
+
+    def setup_middlewares(self):
+
+        self.add_middleware(TrustedHostMiddleware, allowed_hosts=config.EXTRA_ALLOWED_HOSTS)
         return

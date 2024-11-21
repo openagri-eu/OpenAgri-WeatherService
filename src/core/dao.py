@@ -68,3 +68,4 @@ class Dao():
     async def save_weather_data_for_point(self, point: Point, **kwargs) -> WeatherData:
         return await WeatherData(spatial_entity=point, **kwargs).create()
 
+
