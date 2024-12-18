@@ -1,8 +1,10 @@
-from python:3.12 as builder
+FROM python:3.12 AS builder
 
-LABEL org.opencontainers.image.source https://github.com/openagri-eu/weather-service
+LABEL org.opencontainers.image.source=https://github.com/openagri-eu/weather-service
 
 ARG DEBIAN_FRONTEND=noninteractive
+ARG TARGETPLATFORM
+RUN echo "Building for $TARGETPLATFORM"
 
 RUN set -x && \
     apt-get update -q && \
