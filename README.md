@@ -1,21 +1,14 @@
 # Weather Service
 
 ## Description
-
-This a simple service providing a 5-day weather forecast for a specific location. It also calculates critical agricultural indicators,
-such as the Temperature-Humidity Index (THI). The service uses OpenWeatherMap API to extract necessary information.
-
-THI is a combined metric used to assess heat stress in livestock, calculated using air temperature and relative humidity.
-The THI formula is as follows:
-```
-THI = 0.8 * T + RH * (T - 14.4) + 46.4
-```
-Where:
-**T** is the air temperature (in degrees Celsius)
-**RH** is the relative humidity (as a percentage)
+Fast, reliable weather API providing 5-day forecasts, agricultural indicators like
+[Temperature-Humidity Index](https://www.pericoli.com/en/temperature-humidity-index-what-you-need-to-know-about-it/),
+UAV flight condition predictions, and spray condition forecasts. Built with FastAPI for high performance.
+Easy to integrate, deploy, and scale.
 
 
-Project is fully functional, compatible with Python 3.12. Is built using [FastAPI](https://fastapi.tiangolo.com/) framework and served with [Uvicorn](https://www.uvicorn.org).
+Project is fully functional, compatible with Python 3.12.
+Is built using [FastAPI](https://fastapi.tiangolo.com/) framework and served with [Uvicorn](https://www.uvicorn.org).
 
 The application is containerized using Docker. To install it please firstly install `docker`
 
@@ -35,7 +28,7 @@ docker compose up --build
 
 to run the application.
 
-The application is served on `http://127.0.0.1:8000`
+The application is served by default on `http://127.0.0.1:8000`
 
 ## Documentation
 
@@ -43,30 +36,51 @@ The application is served on `http://127.0.0.1:8000`
 ```
 /api/data/forecast5?lat={latitude}&lon={longitude}
 ```
+Retrieves a 5-day weather forecast with 3-hour intervals for a specific location. Response is in standard JSON format
 
 **GET**
 ```
 /api/linkeddata/forecast5?lat={latitude}&lon={longitude}
 ```
+Retrieves the same 5-day weather forecast with 3-hour intervals, but returns data in OCSM JSON-LD format
 
 **GET**
 ```
 /api/data/thi?lat={latitude}&lon={longitude}
 ```
+Provides the Temperature Humidity Index for a specific location in standard JSON format
 
 **GET**
 ```
 /api/linkeddata/thi?lat={latitude}&lon={longitude}
 ```
+Provides the Temperature Humidity Index for a specific location in OCSM JSON-LD format
+
+**GET**
+```
+/api/data/flight_forecast5/{uavmodel}?lat={latitude}&lon={longitude}
+```
+Retrieves a 5-day flight forecast with 3-hour intervals for a specific UAV model at the given location.
+Response is in standard JSON format
+
+**GET**
+```
+/api/data/flight_forecast5?lat={latitude}&lon={longitude}&uavmodels={model}&status_filter={status}
+```
+Retrieves a 5-day flight forecast with 3-hour intervals for UAVs at a specific location.
+You can filter results by UAV model types and status conditions. Response is in standard JSON format
+
 
 **GET**
 ```
 /api/data/weather?lat={latitude}&lon={longitude}
 ```
+Returns current weather conditions for a specific location in standard JSON format
 
-Get a complete list of the OpenApi specification [here](API.md)
+Get a complete list of the OpenApi specification compatible with [OCSM](OCSM.md) and [JSON](API.md)
 
-For more info please run the application and read `http://digi-agri-services.greensupplychain.eu:8000/docs`
+## Swagger Live Docs
+Use the [Online Swagger Editor](https://editor-next.swagger.io/?url=https://raw.githubusercontent.com/openagri-eu/weather-service/refs/heads/doc/document-api/openapi.yml) to visualise the current API specification and documentation.
 
 ## Contribute
 
