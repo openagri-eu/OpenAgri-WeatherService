@@ -71,7 +71,7 @@ class MicroserviceClient:
             # Convert to FastAPI HTTPException with appropriate status code
             status_code = e.response.status_code
             try:
-                detail = e.response.json().get("detail", str(e))
+                detail = e.response.json()
             except:
                 detail = str(e)
 
@@ -90,7 +90,6 @@ class MicroserviceClient:
     async def get(
         self, endpoint: str, params: Optional[Dict[str, Any]] = None, **kwargs
     ):
-        """Make a GET request."""
         return await self.request("GET", endpoint, params=params, **kwargs)
 
     async def post(
