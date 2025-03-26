@@ -9,12 +9,16 @@ from beanie.operators import In
 from src.core import config
 from src import utils
 from src.core.dao import Dao
-from src.models.point import Point
+from src.models.point import GeoJSON, Point
 from src.models.prediction import Prediction
 from src.interoperability import InteroperabilitySchema
+from src.models.spray import SprayForecast
 from src.models.uav import FlyStatus, UAVModel
 from src.models.weather_data import WeatherData
 
+from src.ocsm.base import FeatureOfInterest, JSONLDGraph
+from src.ocsm.spray import SprayForecastDetailedStatus, SprayForecastObservation, SprayForecastResult
+from src.schemas.spray import LocationResponse, SprayForecastResponse
 from src.schemas.uav import FlightForecastListResponse, FlightStatusForecastResponse
 
 
@@ -237,6 +241,111 @@ class OpenWeatherMap():
             raise e
 
         return FlightForecastListResponse(forecasts=results)
+
+
+    # Fetch weather forecast and calculate suitability of spray conditions for a specific locations
+    async def get_spray_forecast(self, lat: float, lon: float, ocsm=False) -> dict:
+
+        point = await self.dao.create_point(lat, lon)
+        url = f'{self.properties["endpointURI"]}/forecast?units=metric&lat={lat}&lon={lon}&appid={config.OPENWEATHERMAP_API_KEY}'
+        openweathermap_json = await utils.http_get(url)
+        forecast5 = openweathermap_json
+
+        if "list" not in forecast5:
+            raise HTTPException(status_code=500, detail="Invalid weather data received")
+
+        results = []
+
+        for entry in forecast5.get("list", []):
+            timestamp = datetime.strptime(entry["dt_txt"], "%Y-%m-%d %H:%M:%S")
+
+            temp = entry["main"]["temp"]
+            humidity = entry["main"]["humidity"]
+            wind = entry["wind"]["speed"] * 3.6  # Convert m/s to km/h
+            precipitation = entry.get("rain", {}).get("3h", 0.0)
+
+            # Estimate Delta T: ΔT = Dry Bulb - Wet Bulb Approximation
+            temp_wet_bulb = utils.calculate_wet_bulb(temp, humidity)
+            delta_t = temp - temp_wet_bulb
+
+            # Evaluate spray conditions
+            spray_condition, status_details = utils.evaluate_spray_conditions(temp, wind, precipitation, humidity, delta_t)
+
+            spray_data = SprayForecast(
+                timestamp=timestamp,
+                source="OpenWeatherMap",
+                location=point.location.model_dump(),
+                spray_conditions=spray_condition,
+                detailed_status=status_details
+            )
+
+            await spray_data.insert()  # Save to MongoDB
+
+            if not ocsm:
+                results.append(SprayForecastResponse(
+                    timestamp=spray_data.timestamp,
+                    spray_conditions=spray_data.spray_conditions,
+                    weather_source=spray_data.source,
+                    location=LocationResponse(type=spray_data.location.type, coordinates=spray_data.location.coordinates),
+                    detailed_status=spray_data.detailed_status
+                ))
+            else:
+                results.append(SprayForecastObservation(
+                **{
+                    "@id": utils.generate_urn(SprayForecast.__name__, obj_id=spray_data.id),
+                    "description": f"Spray Forecast on {spray_data.timestamp}",
+                    "hasFeatureOfInterest": utils.generate_urn('Location', obj_id=spray_data.location.id),
+                    "weatherSource": spray_data.source,
+                    "resultTime": spray_data.timestamp,
+                    "phenomenonTime": spray_data.timestamp,
+                    "hasResult": SprayForecastResult(
+                        **{
+                            "@id": utils.generate_urn(SprayForecast.__name__, 'result', obj_id=spray_data.id),
+                            "@type": ["Result", "SprayForecastResult"],
+                            "spray_conditions": spray_data.spray_conditions,
+                        }
+                    ),
+                    "sprayForecastDetailedStatus": SprayForecastDetailedStatus(
+                        **{
+                             "@id": utils.generate_urn(SprayForecast.__name__, 'result', obj_id=spray_data.id),
+                            "@type": ["sprayForecastDetailedStatus"],
+                            "temperatureStatus": spray_data.detailed_status["temperature_status"],
+                            "windStatus": spray_data.detailed_status["wind_status"],
+                            "precipitationStatus": spray_data.detailed_status["precipitation_status"],
+                            "humidityStatus": spray_data.detailed_status["humidity_status"],
+                            "deltaTStatus": spray_data.detailed_status["delta_t_status"],
+                        }
+                    )
+                }
+            ))
+
+        if not ocsm:
+            return results
+        else:
+            graph = [
+                        FeatureOfInterest(
+                                    **{
+                                        "@id": utils.generate_urn('Location', obj_id=spray_data.id),
+                                        "lon": spray_data.location.coordinates[1],
+                                        "lat": spray_data.location.coordinates[0]
+                                    }
+                                ).model_dump()
+                    ]
+            [graph.append(el.model_dump(exclude_none=True)) for el in results]
+            jsonld = JSONLDGraph(
+                        **{
+                            "@context": [
+                                "https://w3id.org/ocsm/main-context.jsonld",
+                                {
+                                    "qudt": "http://qudt.org/vocab/unit/",
+                                    "cf": "https://vocab.nerc.ac.uk/standard_name/"
+                                }
+                            ],
+                            "@graph": graph
+                        }
+                    )
+            return jsonld
+
 
 
 
