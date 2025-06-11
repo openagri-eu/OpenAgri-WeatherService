@@ -10,10 +10,10 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie, Document
 
 from src.core import config
+from src.core.jobs import caclulate_forecast_for_farm, calculate_spray_forecast_for_farm, calculate_thi_for_parcel
 from src.core.security import create_gk_jwt_tokens
 from src import utils
 from src.core.dao import Dao
-from src.core.jobs import run_forecast_for_farm
 from src.api.api import api_router
 from src.api.auth import auth_router
 from src.external_services.openweathermap import OpenWeatherMap
@@ -144,13 +144,15 @@ class Application(fastapi.FastAPI):
     def setup_fc_jobs(self):
 
         async def start_scheduler(app: Application):
+            scheduler.start()
             job_manager = JobManager(scheduler, app)
             fc_client = FarmCalendarServiceClient(app)
             logger.debug("Scheduler started!")
 
             # Initial farm/parcel/machine sync
-            app.resync_all_jobs(fc_client, job_manager)
+            await app.resync_all_jobs(fc_client, job_manager)
 
+            logger.debug("Scheduling nightly re-sync (every day at 03.00)")
             # Schedule nightly re-sync (every day at 03:00)
             scheduler.add_job(
                 app.resync_all_jobs,
@@ -163,16 +165,18 @@ class Application(fastapi.FastAPI):
         self.add_event_handler(event_type="startup", func=partial(start_scheduler, app=self))
         return
 
-    async def resync_farm_jobs(self, fc_client: FarmCalendarServiceClient, jm: JobManager):
-        logger.debug("🔄 Resyncing farm forecast jobs...")
+    async def resync_all_jobs(self, fc_client: FarmCalendarServiceClient, jm: JobManager):
+        logger.debug("🔄 Resyncing farm jobs...")
         farms = await fc_client.get_farms()
-        jm.reschedule_all_farm_jobs(
-            farms=farms,
-            get_parcels=lambda farm_id: fc_client.get_parcels_for_farm,
-            get_machines=lambda farm_id: fc_client.get_machines_for_farm,
-            job_fn=run_forecast_for_farm
-        )
+        if not farms:
+            logging.info("No locations available for scheduling.")
+            return
 
+        await jm.reschedule_farm_jobs(
+            farms=farms,
+            client=fc_client,
+            jobs=config.JOBS
+        )
 
     async def setup_authentication_tokens(self):
         self.state.access_token, self.state.refresh_token = await create_gk_jwt_tokens()

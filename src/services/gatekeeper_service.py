@@ -19,7 +19,7 @@ class GatekeeperServiceClient(MicroserviceClient):
         }
 
         async with httpx.AsyncClient() as client:
-            url = f'{config.GATEKEEPER_URL}/api/login/'
+            url = f'{config.GATEKEEPER_URL}api/login/'   # INTERNAL_GK_URL has a trailing '/'
             r = await client.post(url, data=login_credentials)
             r.raise_for_status()
             return (r.json()['access'], r.json()['refresh'])

@@ -244,7 +244,7 @@ class OpenWeatherMap():
 
 
         now = datetime.now(timezone.utc)
-        results = []
+        results: List[FlyStatus] = []
 
         # Check if any model needs forecast data
         models_to_fetch = []
