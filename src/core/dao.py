@@ -1,13 +1,15 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 from typing import List, Optional
 from uuid import uuid4
 
 from beanie.odm.operators.find.logical import And
+from beanie.operators import In
 
 from src.core import config
 from src.models.point import Point, GeoJSON, PointTypeEnum, GeoJSONTypeEnum
 from src.models.prediction import Prediction
+from src.models.uav import FlyStatus
 from src.models.weather_data import WeatherData
 
 
@@ -75,5 +77,43 @@ class Dao():
     # Creates and returns the WeatherData object.
     async def save_weather_data_for_point(self, point: Point, **kwargs) -> WeatherData:
         return await WeatherData(spatial_entity=point, **kwargs).create()
+
+    # Find FlyStatus entries for the given UAV models and location where timestamp > now.
+    async def find_existing_fly_status_for_models_older_from_now(
+        self,
+        uav_models: List[str],
+        lat: float,
+        lon: float
+    ) -> List[FlyStatus]:
+
+        point = await self.find_or_create_point(lat, lon)
+        now = datetime.now(timezone.utc)
+        results = await FlyStatus.find(
+            And(
+                In(FlyStatus.uav_model, uav_models),
+                FlyStatus.location == point.location,
+                FlyStatus.timestamp > now
+            )
+        ).to_list()
+        return results
+
+    # Delete all FlyStatus entries where timestamp > now.
+    # Returns the number of documents deleted.
+    async def delete_future_fly_status(
+        self,
+        uav_models: List[str],
+        lat: float,
+        lon: float
+    ) -> int:
+        point = await self.find_or_create_point(lat, lon)
+        now = datetime.now(timezone.utc)
+        delete_result = await FlyStatus.find(
+            And(
+                In(FlyStatus.uav_model, uav_models),
+                FlyStatus.location == point.location,
+                FlyStatus.timestamp > now
+            )
+        ).delete()
+        return delete_result.deleted_count
 
 

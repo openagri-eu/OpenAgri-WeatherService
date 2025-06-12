@@ -5,26 +5,30 @@ from fastapi import FastAPI
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from src.core import config
-from src.core.app import Application
 
 scheduler = AsyncIOScheduler()
 
 class JobManager:
-    def __init__(self, scheduler: AsyncIOScheduler, app: Application):
+    def __init__(self, scheduler: AsyncIOScheduler, app):
         self.scheduler = scheduler
         self.dynamic_job_ids = set()
 
-    def schedule_farm_job(self, farm, parcels, machines, job_fn):
-        job_id = f"forecast_job_{farm['@id'].split(':')[-1]}"
+    def schedule_farm_job(self, farm, parcels, machines, client, job_fn, config, job_id):
+        trigger = config.pop('trigger')
+        options = config.pop('options', {})
+        print(options)
         self.scheduler.add_job(
             job_fn,
-            trigger="interval",
-            hours=3,
+            trigger,
+            **options,
             id=job_id,
-            args=[farm, parcels, machines]
+            next_run_time=datetime.now(),
+            replace_existing=True,
+            args=[farm, parcels, machines, client]
         )
         self.dynamic_job_ids.add(job_id)
-        logging.info(f"Scheduled forecast job for {farm['name']} as {job_id}")
+        logging.info(f"Scheduled job {job_id} for {farm['name']}")
+        print(f"To run in {options}")
 
     def remove_all_dynamic_jobs(self):
         logging.info("Removing all dynamic forecast jobs...")
@@ -33,13 +37,23 @@ class JobManager:
             logging.info(f"Removed job {job_id}")
         self.dynamic_job_ids.clear()
 
-    def reschedule_all_farm_jobs(self, farms, get_parcels, get_machines, job_fn):
+    async def reschedule_farm_jobs(self, farms, client, jobs):
         self.remove_all_dynamic_jobs()
         logging.info("Rescheduling farm forecast jobs...")
         for farm in farms:
-            parcels = get_parcels(farm["@id"])
-            machines = get_machines(farm["@id"])
-            self.schedule_farm_job(farm, parcels, machines, job_fn)
+            parcels = await client.get_parcels_for_farm(farm["@id"])
+            machines = await client.get_machines_for_farm(farm["@id"])
+            for job_name, job_params in jobs.items():
+                job_id = f"{job_name}_{farm['@id'].split(':')[-1]}"
+                self.schedule_farm_job(farm, parcels, machines, client, job_params['name'], job_params['config'], job_id)
+
+
+
+
+
+
+### NOT USED CODE ########
+
 
 
 
