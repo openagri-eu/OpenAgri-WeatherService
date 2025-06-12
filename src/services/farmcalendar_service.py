@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, timezone
 import json
 import re
 import time
@@ -22,22 +23,20 @@ class FarmCalendarServiceClient(MicroserviceClient):
 
     def __init__(self, app: FastAPI):
         super().__init__(base_url=config.FARM_CALENDAR_URL, service_name="Farm Calendar", app=app)
-        self.thi_activity_type = self.fetch_or_create_thi_activity_type()
+        self.thi_activity_type = None
 
     async def get_farms(self):
             resp = await self.get("/Farm/")
-            return resp.json().get("@graph", [])
+            return resp.get("@graph", [])
 
     async def get_parcels_for_farm(self, farm_id: str) -> List[Dict]:
         response = await self.get("/FarmParcels/")
-        response.raise_for_status()
-        all_parcels = response.json().get("@graph", [])
+        all_parcels = response.get("@graph", [])
         return [p for p in all_parcels if p.get("farm", {}).get("@id") == farm_id]
 
     async def get_machines_for_farm(self, farm_id: str) -> List[Dict]:
         response = await self.get("/AgriculturalMachines/")
-        response.raise_for_status()
-        all_machines = response.json().get("@graph", [])
+        all_machines = response.get("@graph", [])
         # Filter by farm parcel matching any farm parcel ID
         # FARMCALENDAR BUG: We get only the uuid part of the id
         # because FARMCALENDAR differs
@@ -52,18 +51,54 @@ class FarmCalendarServiceClient(MicroserviceClient):
             if m.get("hasAgriParcel", {}).get("@id").split(":")[-1] in farm_parcel_ids
         ]
 
+    async def get_observations_for_models_older_from_now(self, uavmodels: List[str]):
+        all_obs = await self.get('/Observations/')
+        all_obs = all_obs["@graph"]
+        now = datetime.now(timezone.utc)
+        filtered_obs = [
+            obs
+            for uavmodel in uavmodels
+            for obs in self._filter_observations(all_obs, now, uavmodel)
+        ]
+
+        filtered_ids = [obs["@id"] for obs in filtered_obs]
+        return filtered_ids
+
+    def _filter_observations(
+            self,
+            observations: List[Dict],
+            reference_time: datetime,
+            model: str
+    ) -> List[Dict]:
+
+        filtered = []
+    
+        for obs in observations:
+            phenomenon_time_str = obs.get("phenomenonTime")
+            phenomenon_time = datetime.fromisoformat(phenomenon_time_str.replace("Z", "+00:00"))
+
+            activity_type_id = obs.get("activityType", {}).get("@id").split(':')[-1]
+            sensor_name = obs.get("madeBySensor", {}).get("name")
+
+            # if (phenomenon_time <= reference_time and
+
+            if(activity_type_id == self.ff_activity_type.split(':')[-1] and
+                sensor_name == model):
+                filtered.append(obs)
+
+        return filtered
+
     async def post_observation(self, observation: dict):
             # Change endpoint if needed
             resp = await self.post("/Observations/", json=observation)
-            resp.raise_for_status()
             # Return ID if needed to track for deletion
-            return resp.json().get("@id")
+            return resp.get("@id")
 
     async def delete_observation(self, observation_id: str) -> None:
         obs_uuid = observation_id.split(":")[-1]
         response = await self.delete(f"/Observations/{obs_uuid}/")
-        response.raise_for_status()
-        return response.status
+        print(response)
+        return response
 
 
     @backoff.on_exception(
@@ -75,14 +110,14 @@ class FarmCalendarServiceClient(MicroserviceClient):
         max_tries=3
     )
     async def fetch_or_create_activity_type(self, activity_type: str, description: str) -> str:
-        act_jsonld = await self.get(f'/api/v1/FarmCalendarActivityTypes/?name={activity_type}')
+        act_jsonld = await self.get(f'/FarmCalendarActivityTypes/?name={activity_type}')
 
         if not self._get_activity_type_id(act_jsonld):
             json_payload = {
                 "name": activity_type,
                 "description": description,
             }
-            act_jsonld = await self.post('/api/v1/FarmCalendarActivityTypes/', json=json_payload)
+            act_jsonld = await self.post('/FarmCalendarActivityTypes/', json=json_payload)
             if act_jsonld['@graph']:
                 return act_jsonld["@graph"][0]["@id"]
 
@@ -114,14 +149,6 @@ class FarmCalendarServiceClient(MicroserviceClient):
             return jsonld["@graph"][0]["@id"]
         return
 
-
-
-
-    # Fetch locations and cache them in memory
-    async def fetch_and_cache_locations(self):
-        self.app.state.locations = await self.fetch_locations()
-        logging.info(f"Cached {len(self.app.state.locations)} locations.")
-
     # Fetch UAV models the belong to user and cache them in memory
     @backoff.on_exception(
         backoff.expo,
@@ -130,7 +157,7 @@ class FarmCalendarServiceClient(MicroserviceClient):
         max_tries=3
     )
     async def fetch_uavs(self):
-        response = await self.get(f'/api/v1/AgriculturalMachines/')
+        response = await self.get(f'/AgriculturalMachines/')
         uavmodels = [ uav.get("model") for uav in response.get("@graph", []) if uav.get("model", None)]
         return uavmodels
 
@@ -169,7 +196,8 @@ class FarmCalendarServiceClient(MicroserviceClient):
         )
         json_payload = observation.model_dump(by_alias=True, exclude_none=True)
         logger.debug(json_payload)
-        await self.post('/api/v1/Observations/', json=json_payload)
+
+        await self.post('/Observations/', json=json_payload)
 
     # Async function to post Flight Forecast data with JWT authentication
     @backoff.on_exception(
@@ -180,7 +208,7 @@ class FarmCalendarServiceClient(MicroserviceClient):
     )
     async def send_flight_forecast(self, lat, lon, uavmodels):
 
-        fly_statuses = await self.app.weather_app.ensure_forecast_for_uavs_and_location(lat, lon, uavmodels, return_existing=False)
+        fly_statuses = await self.app.weather_app.ensure_forecast_for_uavs_and_location(lat, lon, uavmodels, return_existing=True)
         for fly_status in fly_statuses:
             phenomenon_time = fly_status.timestamp.isoformat()
             weather_str = f"Weather params: {json.dumps(fly_status.weather_params)}"
@@ -203,7 +231,15 @@ class FarmCalendarServiceClient(MicroserviceClient):
             )
             json_payload = observation.model_dump(by_alias=True, exclude_none=True)
             logger.debug(json_payload)
-            await self.post('/api/v1/Observations/', json=json_payload)
+            # BUG: If this call fails the data from OWM have already been stored, so on retrying the job the
+            # job believes that data have already been sent.
+            # Needs to delete `flystatuses` when posting to FC fails
+            try:
+                await self.post('/Observations/', json=json_payload)
+            except RefreshJWTTokenError as re:
+                [await fs.delete() for fs in fly_statuses]
+                raise re
+
 
     # Async function to post spray conditions Forecast data with JWT authentication
     @backoff.on_exception(
@@ -238,4 +274,4 @@ class FarmCalendarServiceClient(MicroserviceClient):
 
             json_payload = observation.model_dump(by_alias=True, exclude_none=True)
             logger.debug(json_payload)
-            await self.post('/api/v1/Observations/', json=json_payload)
+            await self.post('/Observations/', json=json_payload)
