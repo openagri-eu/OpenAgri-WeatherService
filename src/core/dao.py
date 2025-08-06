@@ -9,6 +9,7 @@ from src.core import config
 from src.models.point import Point, GeoJSON, PointTypeEnum, GeoJSONTypeEnum
 from src.models.prediction import Prediction
 from src.models.weather_data import WeatherData
+from src.models.history_data import CachedLocation
 
 
 logger = logging.getLogger(__name__)
@@ -76,4 +77,16 @@ class Dao():
     async def save_weather_data_for_point(self, point: Point, **kwargs) -> WeatherData:
         return await WeatherData(spatial_entity=point, **kwargs).create()
 
+
+# Find cached location within the defined radius
+async def find_location_nearby(lat: float, lon: float, radius_m: int):
+    point = {"type": "Point", "coordinates": [lon, lat]}
+    return await CachedLocation.find_one({
+        "location": {
+            "$near": {
+                "$geometry": point,
+                "$maxDistance": radius_m
+            }
+        }
+    })
 

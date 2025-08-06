@@ -13,16 +13,16 @@ from src.schemas.auth import AuthToken
 
 logger = logging.getLogger(__name__)
 
-auth_router = APIRouter(prefix="/auth")
+router = APIRouter()
 
 
-@auth_router.get("/test")
+@router.get("/test")
 async def get_payload(payload: dict =  Depends(authenticate_request)):
    return payload
 
 
 # This is a test method to create a token and can be removed since we integrate with Gatekeeper
-@auth_router.post("/token", response_model=AuthToken)
+@router.post("/token", response_model=AuthToken)
 async def token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
     access_token_expires = timedelta(minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
