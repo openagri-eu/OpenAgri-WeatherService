@@ -1,156 +1,124 @@
 import logging
-from typing import List
+from datetime import datetime
+from fastapi import APIRouter, HTTPException
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-
-# from src.scheduler import scheduler
-from src.core import config
-from src.core import dao
-from src.models.history_data import CachedLocation
-from src.schemas.history_data import CachedLocationIn, CachedLocationOut, CachedLocationsIn
+from src.models.history_data import DailyHistory, HourlyHistory
+from src.schemas.history_data import DailyObservationOut, DailyQuery, \
+    DailyResponse, HourlyObservationOut, HourlyQuery, HourlyResponse
+from src.external_services.openmeteo import WeatherClientFactory
 
 
 logger = logging.getLogger(__name__)
+
 router = APIRouter()
 
+@router.post("/hourly", response_model=HourlyResponse)
+async def get_hourly_history(q: HourlyQuery):
+    point = {"type": "Point", "coordinates": [q.lon, q.lat]}
 
-@router.get("/locations", response_model=List[CachedLocationOut])
-async def list_locations():
-    docs = await CachedLocation.find_all().to_list()
-    return [
-        CachedLocationOut(
-            id=str(doc.id),
-            name=doc.name,
-            lat=doc.location["coordinates"][1],
-            lon=doc.location["coordinates"][0],
-            created_at=str(doc.created_at)
-        ) for doc in docs
-    ]
-
-@router.get("/locations/by-coordinates", response_model=CachedLocationOut)
-async def get_location_by_coordinates(
-    lat: float = Query(..., description="Latitude"),
-    lon: float = Query(..., description="Longitude")
-):
-    point = {"type": "Point", "coordinates": [lon, lat]}
-    location = await CachedLocation.find_one(CachedLocation.location == point)
-    
-    if not location:
-        raise HTTPException(status_code=404, detail="Location not found")
-
-    return CachedLocationOut(
-        id=str(location.id),
-        name=location.name,
-        lat=location.location["coordinates"][1],
-        lon=location.location["coordinates"][0],
-        created_at=str(location.created_at)
+    # Find the nearest location first
+    nearest_doc = await HourlyHistory.find_one(
+        HourlyHistory.location == {
+            "$near": {
+                "$geometry": point,
+                "$maxDistance": q.radius_km * 1000
+            }
+        }
     )
 
-@router.get("/locations/exists-in-radius")
-async def check_location_exists(
-    lat: float,
-    lon: float,
-    radius: int = Depends(lambda: config.LOCATION_RADIUS_METERS)
-):
-    nearby = await dao.find_location_nearby(lat, lon, radius)
-    if not nearby:
-        raise HTTPException(status_code=404, detail="Location not found")
+    if not nearest_doc:
+        # Fetch data from Open Meteo
+        provider = WeatherClientFactory.get_provider()
+        data = await provider.get_hourly_history(q.lat, q.lon, q.start, q.end, q.variables)
+        logger.debug("Fetching data from Open-Meteo...")
+        return HourlyResponse(
+            location={"lat": q.lat, "lon": q.lon},
+            data=data,
+            source="openmeteo"
+        )
 
-    return CachedLocationOut(
-        id=str(nearby.id),
-        name=nearby.name,
-        lat=nearby.location["coordinates"][1],
-        lon=nearby.location["coordinates"][0],
-        created_at=str(nearby.created_at)
+    # Then get all docs for that exact location in the date range
+    docs = await HourlyHistory.find_many(
+        HourlyHistory.location == nearest_doc.location,
+        HourlyHistory.date >= q.start,
+        HourlyHistory.date <= q.end
+    ).to_list()
+
+    observations = []
+    dt_start = datetime.combine(q.start, datetime.min.time())
+    dt_end = datetime.combine(q.end, datetime.min.time())
+    for doc in docs:
+        for obs in doc.observations:
+            if dt_start <= obs.timestamp <= dt_end:
+                observations.append(
+                    HourlyObservationOut(
+                        timestamp=obs.timestamp,
+                        values={v: obs.values.get(v) for v in q.variables}
+                    )
+                )
+
+    observations.sort(key=lambda o: o.timestamp)
+
+    return HourlyResponse(
+        location={
+            "lat": nearest_doc.location["coordinates"][1],
+            "lon": nearest_doc.location["coordinates"][0]
+        },
+        data=observations,
+        source=nearest_doc.source
     )
 
 
-@router.post("/locations", response_model=List[CachedLocationOut])
-async def add_locations(payload: CachedLocationsIn):
-    result = []
+@router.post("/daily", response_model=DailyResponse)
+async def get_daily_history(q: DailyQuery):
+    point = {"type": "Point", "coordinates": [q.lon, q.lat]}
 
-    for loc in payload.locations:
-        geo = {"type": "Point", "coordinates": [loc.lon, loc.lat]}
-        existing = await CachedLocation.find_one(CachedLocation.location == geo)
-        if not existing:
-            doc = CachedLocation(name=loc.name, location=geo)
-            await doc.insert()
-            result.append(doc)
+    # Find the nearest location first
+    nearest_doc = await DailyHistory.find_one(
+        DailyHistory.location == {
+            "$near": {
+                "$geometry": point,
+                "$maxDistance": q.radius_km * 1000
+            }
+        }
+    )
 
-            # 👉 fetch & cache 30-day history
-            # await fetch_and_cache_last_month(loc.lat, loc.lon)
+    if not nearest_doc:
+        # Fetch data from Open Meteo
+        provider = WeatherClientFactory.get_provider()
+        data = await provider.get_daily_history(q.lat, q.lon, q.start, q.end, q.variables)
+        logger.debug("Fetching data from Open-Meteo...")
+        return DailyResponse(
+            location={"lat": q.lat, "lon": q.lon},
+            data=data,
+            source="openmeteo"
+        )
 
-            # 👉 schedule daily update task
-            # scheduler.add_job(
-            #     lambda: update_sliding_window(loc.lat, loc.lon),
-            #     trigger="cron", hour=0, minute=1, id=f"update_{loc.lat}_{loc.lon}"
-            # )
+    # Then get all docs for that exact location in the date range
+    docs = await DailyHistory.find_many(
+        DailyHistory.location == nearest_doc.location,
+        DailyHistory.date_range["start"] <= q.end,
+        DailyHistory.date_range["end"] >= q.start
+    ).to_list()
 
-    return [
-        CachedLocationOut(
-            id=str(l.id),
-            name=l.name,
-            lat=l.location["coordinates"][1],
-            lon=l.location["coordinates"][0],
-            created_at=str(l.created_at)
-        ) for l in result
-    ]
+    observations = []
+    for doc in docs:
+        for obs in doc.observations:
+            if q.start <= obs.date <= q.end:
+                observations.append(
+                    DailyObservationOut(
+                        date=obs.date,
+                        values={v: obs.values.get(v) for v in q.variables}
+                    )
+                )
 
-@router.post("/locations/unique", response_model=List[CachedLocationOut])
-async def add_unique_locations(payload: CachedLocationsIn):
-    added = []
+    observations.sort(key=lambda o: o.date)
 
-    for loc in payload.locations:
-        existing = await dao.find_location_nearby(loc.lat, loc.lon, config.LOCATION_RADIUS_METERS)
-        if existing:
-            continue  # Skip nearby duplicates
-
-        geo = {"type": "Point", "coordinates": [loc.lon, loc.lat]}
-        doc = CachedLocation(name=loc.name, location=geo)
-        await doc.insert()
-        added.append(doc)
-
-        # 👉 fetch & cache 30-day history
-        # await fetch_and_cache_last_month(loc.lat, loc.lon)
-
-        # 👉 schedule daily update task
-        # scheduler.add_job(
-        #     lambda: update_sliding_window(loc.lat, loc.lon),
-        #     trigger="cron", hour=0, minute=1, id=f"update_{loc.lat}_{loc.lon}"
-        # )
-
-    if not added:
-        raise HTTPException(status_code=409, detail="All locations already exist nearby")
-
-    return [
-        CachedLocationOut(
-            id=str(d.id),
-            name=d.name,
-            lat=d.location["coordinates"][1],
-            lon=d.location["coordinates"][0],
-            created_at=str(d.created_at)
-        ) for d in added
-    ]
-
-@router.delete("/locations/{location_id}")
-async def delete_location(location_id: str):
-    loc = await CachedLocation.get(location_id)
-    if not loc:
-        raise HTTPException(status_code=404, detail="Location not found")
-
-    lat, lon = loc.location["coordinates"][1], loc.location["coordinates"][0]
-
-    # delete history data
-    # await HourlyHistory.find(HourlyHistory.location == loc.location).delete()
-    # await DailyHistory.find(DailyHistory.location == loc.location).delete()
-
-    # remove background task
-    try:
-        ...
-        # scheduler.remove_job(f"update_{lat}_{lon}")
-    except Exception:
-        pass
-
-    await loc.delete()
-    return {"detail": "Location and history removed"}
-
+    return DailyResponse(
+        location={
+            "lat": nearest_doc.location["coordinates"][1],
+            "lon": nearest_doc.location["coordinates"][0]
+        },
+        data=observations,
+        source=nearest_doc.source
+    )

@@ -1,7 +1,7 @@
 from beanie import Document
-from pydantic import Field
-from typing import Optional
-from datetime import datetime, timezone
+from pydantic import BaseModel, Field
+from typing import Dict, List, Optional
+from datetime import datetime, timezone, date
 
 from pymongo import GEOSPHERE, IndexModel
 
@@ -17,6 +17,45 @@ class CachedLocation(Document):
 
     class Settings:
         name = "cached_locations"
+        indexes = [
+            IndexModel([("location", GEOSPHERE)])
+        ]
+
+class HourlyObservation(BaseModel):
+    timestamp: datetime
+    values: Dict[str, float]
+
+class HourlyHistory(Document):
+    type: str = Field(default="historical")
+    granularity: str = Field(default="hourly")
+    location: Dict = Field(..., description="GeoJSON Point")
+    date: date
+    observations: List[HourlyObservation]
+    fetched_at: datetime
+    source: str = "open-meteo"
+
+    class Settings:
+        name = "weather_history_hourly"
+        indexes = [
+            IndexModel([("location", GEOSPHERE)])
+        ]
+
+class DailyObservation(BaseModel):
+    date: date
+    values: Dict[str, float]
+
+
+class DailyHistory(Document):
+    type: str = Field(default="historical")
+    granularity: str = Field(default="daily")
+    location: Dict = Field(..., description="GeoJSON Point")
+    date_range: Dict[str, date]
+    observations: List[DailyObservation]
+    fetched_at: datetime
+    source: str = "open-meteo"
+
+    class Settings:
+        name = "weather_history_daily"
         indexes = [
             IndexModel([("location", GEOSPHERE)])
         ]

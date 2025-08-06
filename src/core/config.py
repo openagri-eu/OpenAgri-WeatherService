@@ -14,7 +14,10 @@ WEATHER_SRV_HOSTNAME = os.environ.get('WEATHER_SRV_HOSTNAME', 'weathersrv')
 # DB
 DATABASE_URI = os.environ.get('WEATHER_SRV_DATABASE_URI', 'mongodb://root:root@localhost:27017/')
 DATABASE_NAME = os.environ.get('WEATHER_SRV_DATABASE_NAME', 'openagridb')
+
+# Weather providers
 OPENWEATHERMAP_API_KEY = os.environ.get('WEATHER_SRV_OPENWEATHERMAP_API_KEY', '')
+HISTORY_WEATHER_PROVIDER = os.environ.get('HISTORY_WEATHER_PROVIDER', 'openmeteo')
 
 # ALLOWED_HOSTS
 EXTRA_ALLOWED_HOSTS = os.environ.get('EXTRA_ALLOWED_HOSTS', "*").replace(' ', '').split(',')
