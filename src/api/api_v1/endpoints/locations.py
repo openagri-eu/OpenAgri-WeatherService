@@ -1,13 +1,17 @@
+from datetime import datetime, timezone
 import logging
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 # from src.scheduler import scheduler
+from src.scheduler import scheduler
 from src.core import config
 from src.core import dao
 from src.models.history_data import CachedLocation
 from src.schemas.history_data import CachedLocationIn, CachedLocationOut, CachedLocationsIn
+from src.services.cache_loader import fetch_and_cache_last_month
+from src.services.jobs import update_sliding_window
 
 
 logger = logging.getLogger(__name__)
@@ -77,14 +81,22 @@ async def add_locations(payload: CachedLocationsIn):
             await doc.insert()
             result.append(doc)
 
-            # 👉 fetch & cache 30-day history
-            # await fetch_and_cache_last_month(loc.lat, loc.lon)
+            try:
+                # Fetch & cache
+                await fetch_and_cache_last_month(loc.lat, loc.lon, config.OM_CACHE_VARIABLES)
 
-            # 👉 schedule daily update task
-            # scheduler.add_job(
-            #     lambda: update_sliding_window(loc.lat, loc.lon),
-            #     trigger="cron", hour=0, minute=1, id=f"update_{loc.lat}_{loc.lon}"
-            # )
+                # 👉 schedule daily update task
+                # scheduler.add_job(
+                #     lambda: update_sliding_window(loc.lat, loc.lon),
+                #     trigger="cron", hour=0, minute=1, id=f"update_{loc.lat}_{loc.lon}"
+                # )
+
+                result.append(doc)
+
+            except Exception as e:
+                await doc.delete()  # Rollback location insert
+                # Optional: log error
+                logger.exception(f"❌ Failed to cache location {loc.lat},{loc.lon}: {e}")
 
     return [
         CachedLocationOut(
@@ -110,14 +122,27 @@ async def add_unique_locations(payload: CachedLocationsIn):
         await doc.insert()
         added.append(doc)
 
-        # 👉 fetch & cache 30-day history
-        # await fetch_and_cache_last_month(loc.lat, loc.lon)
+        try:
+            # Fetch & cache
+            await fetch_and_cache_last_month(loc.lat, loc.lon, config.OM_CACHE_VARIABLES)
 
-        # 👉 schedule daily update task
-        # scheduler.add_job(
-        #     lambda: update_sliding_window(loc.lat, loc.lon),
-        #     trigger="cron", hour=0, minute=1, id=f"update_{loc.lat}_{loc.lon}"
-        # )
+            # 👉 schedule daily update task
+            scheduler.add_job(
+                update_sliding_window,
+                trigger="cron",
+                hour=23,
+                args=[loc.lat, loc.lon, config.OM_CACHE_VARIABLES],
+                id=f"update_sliding_{loc.lat}_{loc.lon}",
+                replace_existing=True,
+            )
+            logging.debug("Scheduled sliding window update for %s, %s", loc.lat, loc.lon)
+
+            added.append(doc)
+
+        except Exception as e:
+            await doc.delete()  # Rollback location insert
+            # Optional: log error
+            logger.exception(f"❌ Failed to cache location {loc.lat},{loc.lon}: {e}")
 
     if not added:
         raise HTTPException(status_code=409, detail="All locations already exist nearby")

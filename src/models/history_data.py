@@ -1,6 +1,6 @@
 from beanie import Document
 from pydantic import BaseModel, Field
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 from datetime import datetime, timezone, date
 
 from pymongo import GEOSPHERE, IndexModel
@@ -23,7 +23,7 @@ class CachedLocation(Document):
 
 class HourlyObservation(BaseModel):
     timestamp: datetime
-    values: Dict[str, float]
+    values: Dict[str, Union[float | None]]
 
 class HourlyHistory(Document):
     type: str = Field(default="historical")
@@ -42,7 +42,7 @@ class HourlyHistory(Document):
 
 class DailyObservation(BaseModel):
     date: date
-    values: Dict[str, float]
+    values: Dict[str, Union[float | None]]
 
 
 class DailyHistory(Document):

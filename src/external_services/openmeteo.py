@@ -1,6 +1,6 @@
 import httpx
 from datetime import date, datetime
-from typing import List, Protocol
+from typing import List, Optional, Protocol
 import os
 
 from src.core import config
@@ -61,19 +61,27 @@ class OpenMeteoClient:
         results = []
 
         for i, t in enumerate(timestamps):
-            values = {v: data["daily"][v][i] for v in variables if v in data["daily"] and data["daily"][v][i]}
+            values = {v: data["daily"][v][i] for v in variables if v in data["daily"]}
             results.append(DailyObservationOut(date=date.fromisoformat(t), values=values))
 
         return results
 
+    async def get_single_day_history(self, lat: float, lon: float, day: date, variables: dict[str, List[str]]) -> tuple[List[HourlyObservationOut], List[DailyObservationOut]]:
+        hourly = await self.get_hourly_history(lat, lon, day, day, variables.get("hourly", []))
+        daily = await self.get_daily_history(lat, lon, day, day, variables.get("daily", []))
+        return hourly, daily
+
 
 # Factory using environment variable
 class WeatherClientFactory:
-    @staticmethod
-    def get_provider() -> WeatherProvider:
-        provider_name = config.HISTORY_WEATHER_PROVIDER
+    _provider: Optional[WeatherProvider] = None
 
-        if provider_name == "openmeteo":
-            return OpenMeteoClient()
-
-        raise ValueError(f"Unsupported weather provider: {provider_name}")
+    @classmethod
+    def get_provider(cls) -> WeatherProvider:
+        if cls._provider is None:
+            provider_name = config.HISTORY_WEATHER_PROVIDER
+            if provider_name == "openmeteo":
+                cls._provider = OpenMeteoClient()
+            else:
+                raise ValueError(f"Unsupported weather provider: {provider_name}")
+        return cls._provider

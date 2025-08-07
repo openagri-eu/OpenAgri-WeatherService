@@ -16,8 +16,8 @@ from src.core.dao import Dao
 from src.api.api import data_router
 from src.api.api_v1.api import api_router
 from src.external_services.openweathermap import OpenWeatherMap
-from src.services.gatekeeper_service import GatekeeperServiceClient
-from src.services.farmcalendar_service import FarmCalendarServiceClient
+from src.openagri_services.gatekeeper_service import GatekeeperServiceClient
+from src.openagri_services.farmcalendar_service import FarmCalendarServiceClient
 import src.scheduler as scheduler
 
 
@@ -150,7 +150,7 @@ class Application(fastapi.FastAPI):
             await app.state.fc_client.fetch_or_create_flight_forecast_activity_type()
             await app.state.fc_client.fetch_or_create_spray_forecast_activity_type()
 
-            scheduler.start_scheduler(app)
+            await scheduler.start_scheduler(app)
 
         self.add_event_handler(event_type="startup", func=partial(start_scheduler, app=self))
         return

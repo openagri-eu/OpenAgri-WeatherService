@@ -1,16 +1,18 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 from fastapi import FastAPI
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from src.core import config
+from src.models.history_data import CachedLocation
+from src.services.jobs import update_sliding_window
 
 scheduler = AsyncIOScheduler()
 
 
 # Schedule THI tasks for each location
-def schedule_tasks(app: FastAPI):
+async def schedule_tasks(app: FastAPI):
     scheduler.remove_all_jobs()  # Clear old jobs
 
     if not hasattr(app.state, "locations") or not app.state.locations:
@@ -23,7 +25,7 @@ def schedule_tasks(app: FastAPI):
                 post_thi_task,
                 "interval",
                 hours=config.INTERVAL_THI_TO_FARMCALENDAR,
-                next_run_time=datetime.now(),
+                next_run_time=datetime.now(timezone.utc),
                 id=f"thi_task_{lat}_{lon}",
                 replace_existing=True,
                 args=[app, lat, lon]
@@ -34,7 +36,7 @@ def schedule_tasks(app: FastAPI):
                 post_flight_forecast,
                 "interval",
                 days=5,
-                next_run_time=datetime.now(),
+                next_run_time=datetime.now(timezone.utc),
                 id=f"flight_forecast_task_{lat}_{lon}",
                 replace_existing=True,
                 args=[app, lat, lon, app.state.uavmodels]
@@ -45,12 +47,25 @@ def schedule_tasks(app: FastAPI):
                 post_spray_forecast,
                 "interval",
                 days=5,
-                next_run_time=datetime.now(),
+                next_run_time=datetime.now(timezone.utc),
                 id=f"spray_forecast_task_{lat}_{lon}",
                 replace_existing=True,
                 args=[app, lat, lon]
             )
             logging.debug("Scheduled spray conditions forecast task for %s, %s", lat, lon)
+
+    locations = await CachedLocation.find_all().to_list()
+    for loc in locations:
+        lat, lon = loc.location["coordinates"][1], loc.location["coordinates"][0]
+        scheduler.add_job(
+            update_sliding_window,
+            trigger="cron",
+            hour=23,
+            args=[lat, lon, config.OM_CACHE_VARIABLES],
+            id=f"update_sliding_{lat}_{lon}",
+            replace_existing=True,
+        )
+        logging.debug("Scheduled sliding window update for %s, %s", lat, lon)
 
 
 # Post THI for a single location
@@ -84,9 +99,9 @@ async def refresh_machines_and_schedule(app):
 
 
 
-def start_scheduler(app: FastAPI):
+async def start_scheduler(app: FastAPI):
 
-    schedule_tasks(app)
+    await schedule_tasks(app)
 
     # Refresh locations and reschedule every 24 hours
     scheduler.add_job(refresh_locations_and_schedule, "interval", hours=24, args=[app])

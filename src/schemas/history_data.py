@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from pydantic import BaseModel
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 
 class CachedLocationIn(BaseModel):
@@ -31,8 +31,7 @@ class HourlyQuery(BaseModel):
 
 class HourlyObservationOut(BaseModel):
     timestamp: datetime
-    values: Dict[str, float]
-
+    values: Dict[str, Union[float | None]]
 
 class HourlyResponse(BaseModel):
     location: Dict[str, float]
@@ -50,7 +49,7 @@ class DailyQuery(BaseModel):
 
 class DailyObservationOut(BaseModel):
     date: date
-    values: Dict[str, float]
+    values: Dict[str, Union[float | None]]
 
 
 class DailyResponse(BaseModel):

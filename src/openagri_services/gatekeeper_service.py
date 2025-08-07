@@ -2,7 +2,7 @@ from fastapi import FastAPI
 import httpx
 
 from src.core import config
-from src.services.base import MicroserviceClient
+from src.openagri_services.base import MicroserviceClient
 
 class GatekeeperServiceClient(MicroserviceClient):
 
