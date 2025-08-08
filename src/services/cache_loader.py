@@ -5,7 +5,7 @@ from src.models.history_data import DailyHistory, DailyObservation
 from src.external_services.openmeteo import WeatherClientFactory
 
 async def fetch_and_cache_last_month(lat: float, lon: float, variables: dict[str, list[str]]):
-    start = date.today() - timedelta(days=30)
+    start = date.today() - timedelta(days=32)
     end = date.today() - timedelta(days=2)
     provider = WeatherClientFactory.get_provider()
 

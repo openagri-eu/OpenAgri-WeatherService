@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from src.scheduler import scheduler
 from src.core import config
 from src.core import dao
-from src.models.history_data import CachedLocation
+from src.models.history_data import CachedLocation, DailyHistory, HourlyHistory
 from src.schemas.history_data import CachedLocationIn, CachedLocationOut, CachedLocationsIn
 from src.services.cache_loader import fetch_and_cache_last_month
 from src.services.jobs import update_sliding_window
@@ -120,7 +120,6 @@ async def add_unique_locations(payload: CachedLocationsIn):
         geo = {"type": "Point", "coordinates": [loc.lon, loc.lat]}
         doc = CachedLocation(name=loc.name, location=geo)
         await doc.insert()
-        added.append(doc)
 
         try:
             # Fetch & cache
@@ -140,8 +139,11 @@ async def add_unique_locations(payload: CachedLocationsIn):
             added.append(doc)
 
         except Exception as e:
-            await doc.delete()  # Rollback location insert
-            # Optional: log error
+            # Rollback location insert
+            await doc.delete()
+             # Delete related history documents if they exist
+            await HourlyHistory.find(HourlyHistory.location == geo).delete()
+            await DailyHistory.find(DailyHistory.location == geo).delete()
             logger.exception(f"❌ Failed to cache location {loc.lat},{loc.lon}: {e}")
 
     if not added:
@@ -163,16 +165,20 @@ async def delete_location(location_id: str):
     if not loc:
         raise HTTPException(status_code=404, detail="Location not found")
 
-    lat, lon = loc.location["coordinates"][1], loc.location["coordinates"][0]
+    lon, lat = loc.location["coordinates"]
+    geo = loc.location
 
-    # delete history data
-    # await HourlyHistory.find(HourlyHistory.location == loc.location).delete()
-    # await DailyHistory.find(DailyHistory.location == loc.location).delete()
+    # Delete related history documents
+    await HourlyHistory.find(HourlyHistory.location == geo).delete()
+    await DailyHistory.find(DailyHistory.location == geo).delete()
 
     # remove background task
     try:
-        ...
-        # scheduler.remove_job(f"update_{lat}_{lon}")
+        # Remove related scheduled job
+        for job_prefix in ["update_sliding"]:
+            job_id = f"{job_prefix}_{lat}_{lon}"
+            if scheduler.get_job(job_id):
+                scheduler.remove_job(job_id)
     except Exception:
         pass
 
