@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 from typing import List, Optional
 from uuid import uuid4
@@ -9,6 +9,7 @@ from src.core import config
 from src.models.point import Point, GeoJSON, PointTypeEnum, GeoJSONTypeEnum
 from src.models.prediction import Prediction
 from src.models.weather_data import WeatherData
+from src.models.history_data import CachedLocation, DailyHistory
 
 
 logger = logging.getLogger(__name__)
@@ -77,3 +78,41 @@ class Dao():
         return await WeatherData(spatial_entity=point, **kwargs).create()
 
 
+# Find cached location within the defined radius
+async def find_location_nearby(lat: float, lon: float, radius_m: int):
+    point = {"type": "Point", "coordinates": [lon, lat]}
+    return await CachedLocation.find_one({
+        "location": {
+            "$near": {
+                "$geometry": point,
+                "$maxDistance": radius_m
+            }
+        }
+    })
+
+# Sliding window history updates
+async def update_sliding_window(lon, lat, oldest, yesterday, daily):
+        # 1. Pull the old observation
+        await DailyHistory.find(
+            {
+                "location.coordinates": [lon, lat],
+                "observations.date": oldest
+            }
+        ).update_many(
+            {"$pull": {"observations": {"date": oldest}}}
+        )
+
+        # 2. Push the new observation and update other fields
+        await DailyHistory.find(
+            {
+                "location.coordinates": [lon, lat]
+            }
+        ).update_many(
+            {
+                "$push": {"observations": daily[0].model_dump()},
+                "$set": {
+                    "date_range.end": yesterday,
+                    "fetched_at": datetime.now(timezone.utc)
+                }
+            }
+        )

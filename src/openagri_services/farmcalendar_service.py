@@ -12,8 +12,8 @@ import backoff
 from src.core import config
 from src import utils
 from src.core.exceptions import RefreshJWTTokenError
-from src.services.base import MicroserviceClient
-from src.services.interoperability import MadeBySensorSchema, ObservationSchema, QuantityValueSchema
+from src.openagri_services.base import MicroserviceClient
+from src.openagri_services.interoperability import MadeBySensorSchema, ObservationSchema, QuantityValueSchema
 
 
 logger = logging.getLogger(__name__)

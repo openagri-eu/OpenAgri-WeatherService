@@ -5,7 +5,7 @@ from passlib.context import CryptContext
 import jwt
 
 from src.core import config
-from src.services.gatekeeper_service import GatekeeperServiceClient
+from src.openagri_services.gatekeeper_service import GatekeeperServiceClient
 
 pwd_context = CryptContext(schemes=[config.CRYPT_CONTEXT_SCHEME])
 
