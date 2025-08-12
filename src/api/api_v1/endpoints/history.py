@@ -1,7 +1,8 @@
 import logging
 from datetime import datetime
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
+from src.api.deps import authenticate_request
 from src.models.history_data import DailyHistory, HourlyHistory
 from src.schemas.history_data import DailyObservationOut, DailyQuery, \
     DailyResponse, HourlyObservationOut, HourlyQuery, HourlyResponse
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.post("/hourly", response_model=HourlyResponse)
-async def get_hourly_history(q: HourlyQuery):
+async def get_hourly_history(q: HourlyQuery, payload: dict = Depends(authenticate_request)):
     point = {"type": "Point", "coordinates": [q.lon, q.lat]}
 
     # Find the nearest location first
@@ -70,7 +71,7 @@ async def get_hourly_history(q: HourlyQuery):
 
 
 @router.post("/daily", response_model=DailyResponse)
-async def get_daily_history(q: DailyQuery):
+async def get_daily_history(q: DailyQuery, payload: dict = Depends(authenticate_request)):
     point = {"type": "Point", "coordinates": [q.lon, q.lat]}
 
     # Find the nearest location first

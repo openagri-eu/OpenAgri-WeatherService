@@ -5,6 +5,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 # from src.scheduler import scheduler
+from src.api.deps import authenticate_request
 from src.scheduler import scheduler
 from src.core import config
 from src.core import dao
@@ -19,7 +20,7 @@ router = APIRouter()
 
 
 @router.get("/locations", response_model=List[CachedLocationOut])
-async def list_locations():
+async def list_locations(payload: dict = Depends(authenticate_request)):
     docs = await CachedLocation.find_all().to_list()
     return [
         CachedLocationOut(
@@ -34,7 +35,8 @@ async def list_locations():
 @router.get("/locations/by-coordinates", response_model=CachedLocationOut)
 async def get_location_by_coordinates(
     lat: float = Query(..., description="Latitude"),
-    lon: float = Query(..., description="Longitude")
+    lon: float = Query(..., description="Longitude"),
+    payload: dict = Depends(authenticate_request)
 ):
     point = {"type": "Point", "coordinates": [lon, lat]}
     location = await CachedLocation.find_one(CachedLocation.location == point)
@@ -54,7 +56,8 @@ async def get_location_by_coordinates(
 async def check_location_exists(
     lat: float,
     lon: float,
-    radius: int = Depends(lambda: config.LOCATION_RADIUS_METERS)
+    radius: int = Depends(lambda: config.LOCATION_RADIUS_METERS),
+    payload: dict = Depends(authenticate_request)
 ):
     nearby = await dao.find_location_nearby(lat, lon, radius)
     if not nearby:
@@ -70,10 +73,10 @@ async def check_location_exists(
 
 
 @router.post("/locations", response_model=List[CachedLocationOut])
-async def add_locations(payload: CachedLocationsIn):
+async def add_locations(data: CachedLocationsIn, payload: dict = Depends(authenticate_request)):
     result = []
 
-    for loc in payload.locations:
+    for loc in data.locations:
         geo = {"type": "Point", "coordinates": [loc.lon, loc.lat]}
         existing = await CachedLocation.find_one(CachedLocation.location == geo)
         if not existing:
@@ -109,10 +112,10 @@ async def add_locations(payload: CachedLocationsIn):
     ]
 
 @router.post("/locations/unique", response_model=List[CachedLocationOut])
-async def add_unique_locations(payload: CachedLocationsIn):
+async def add_unique_locations(data: CachedLocationsIn, payload: dict = Depends(authenticate_request)):
     added = []
 
-    for loc in payload.locations:
+    for loc in data.locations:
         existing = await dao.find_location_nearby(loc.lat, loc.lon, config.LOCATION_RADIUS_METERS)
         if existing:
             continue  # Skip nearby duplicates
@@ -160,7 +163,7 @@ async def add_unique_locations(payload: CachedLocationsIn):
     ]
 
 @router.delete("/locations/{location_id}")
-async def delete_location(location_id: str):
+async def delete_location(location_id: str, payload: dict = Depends(authenticate_request)):
     loc = await CachedLocation.get(location_id)
     if not loc:
         raise HTTPException(status_code=404, detail="Location not found")
@@ -184,6 +187,3 @@ async def delete_location(location_id: str):
 
     await loc.delete()
     return {"detail": "Location and history removed"}
-
-
-
