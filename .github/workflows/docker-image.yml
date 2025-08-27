@@ -1,4 +1,4 @@
-name: Docker Image CI
+name: Build weather srv image multi-platform
 
 on:
   push:
@@ -12,7 +12,6 @@ on:
     types:
       - created
 
-
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
@@ -21,14 +20,31 @@ jobs:
       packages: write
       
     steps:
+      # Checkout source code
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Saves time by not fetching other branches
+          fetch-depth: 0
 
+      # Setup Docker daemon with containerd snapshotter enabled
+      - name: Set up Docker with containerd features
+        uses: docker/setup-docker-action@v4
+        with:
+          daemon-config: |
+            {
+              "debug": true,
+              "features": { "containerd-snapshotter": true }
+            }
+
+      # Setup QEMU for cross-platform emulation
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      # Setup Docker Buildx for multi-platform builds
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # Login to GitHub Container Registry
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -36,16 +52,20 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Normalize repo name to lowercase
       - name: Set lowercase repository name
         run: |
           echo "REPO_LOWER=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
 
+      # Build and push multi-platform image
       - name: Build and push Docker image
         id: docker_build
         uses: docker/build-push-action@v6
         with:
           context: .
+          dockerfile: Dockerfile.x64
           push: true
+          platforms: linux/amd64,linux/arm64       # <-- multi-platform
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}:${{ github.ref_name }}
             ${{ github.ref_name == 'main' && format('ghcr.io/{0}:latest', env.REPO_LOWER) || '' }}
