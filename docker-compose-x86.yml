@@ -4,7 +4,9 @@ version: '3'
 services:
   app:
     image: ghcr.io/openagri-eu/openagri-weatherservice:${TAG}
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.x86
     depends_on:
       - mongodb
     ports:
