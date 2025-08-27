@@ -53,9 +53,11 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # Normalize repo name to lowercase
-      - name: Set lowercase repository name
+      - name: Sanitize
         run: |
           echo "REPO_LOWER=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+          SAFE_REF=$(echo "${GITHUB_REF_NAME}" | tr / -)
+          echo "SAFE_REF=$SAFE_REF" >> $GITHUB_ENV
 
       # Build and push multi-platform image
       - name: Build and push Docker image
@@ -67,7 +69,7 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64       # <-- multi-platform
           tags: |
-            ghcr.io/${{ env.REPO_LOWER }}:${{ github.ref_name }}
+            ghcr.io/${{ env.REPO_LOWER }}:${{ env.SAFE_REF }}
             ${{ github.ref_name == 'main' && format('ghcr.io/{0}:latest', env.REPO_LOWER) || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
