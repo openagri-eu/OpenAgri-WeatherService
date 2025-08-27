@@ -43,4 +43,5 @@ ENV USER_ID=$USER_ID \
     PROJECT_DIR=/weather-service \
     PYTHONPATH=/weather-service
 
-CMD ["./run.sh", "prod"]
+ENTRYPOINT ["./run.sh"]
+CMD ["prod"]
