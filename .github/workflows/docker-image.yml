@@ -1,4 +1,4 @@
-name: Docker Multi-Platform CI
+name: Docker Multi-Platform Builds
 
 on:
   push:
@@ -9,8 +9,7 @@ on:
         description: 'Branch to run the workflow on'
         required: false
   release:
-    types:
-      - created
+    types: [ created ]
 
 jobs:
 
@@ -22,8 +21,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-    outputs:
-      image-tag: ${{ steps.build.outputs.image-tag }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -38,23 +35,22 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Normalize repo and sanitize branch
+      - name: Normalize repo and sanitize ref
         run: |
           echo "REPO_LOWER=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
           SAFE_REF=$(echo "${GITHUB_REF_NAME}" | tr / -)
           echo "SAFE_REF=$SAFE_REF" >> $GITHUB_ENV
 
-      - name: Build and push AMD64 Docker image
-        id: build
+      - name: Build and push AMD64 image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile.x86_64
-          push: true
           platforms: linux/amd64
+          push: true
           tags: |
-            ghcr.io/${{ env.REPO_LOWER }}:${{ env.SAFE_REF }}
-            ${{ github.ref_name == 'main' && format('ghcr.io/{0}:latest', env.REPO_LOWER) || '' }}
+            ghcr.io/${{ env.REPO_LOWER }}:${{ env.SAFE_REF }}-amd64
+            ${{ github.ref_name == 'main' && format('ghcr.io/{0}:latest-amd64', env.REPO_LOWER) || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -62,16 +58,15 @@ jobs:
   # ARM64 Build (manual / self-hosted)
   # -------------------------
   build-arm64:
-    if: ${{ github.event_name == 'workflow_dispatch' }}   # manual trigger
-    # runs-on: [self-hosted, arm64]                        # your ARM64 runner
+    if: ${{ github.event_name == 'workflow_dispatch' }} # manual trigger only
+    # runs-on: [self-hosted, arm64]                      # use if you have an ARM64 runner
     runs-on: ubuntu-latest
     needs: build-amd64
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Setup Docker daemon with containerd snapshotter enabled
-      - name: Set up Docker with containerd features
+      - name: Set up Docker daemon (containerd features)
         uses: docker/setup-docker-action@v4
         with:
           daemon-config: |
@@ -80,7 +75,6 @@ jobs:
               "features": { "containerd-snapshotter": true }
             }
 
-      # Setup QEMU for cross-platform emulation
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -94,22 +88,22 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Normalize repo and sanitize branch
+      - name: Normalize repo and sanitize ref
         run: |
           echo "REPO_LOWER=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
           SAFE_REF=$(echo "${GITHUB_REF_NAME}" | tr / -)
           echo "SAFE_REF=$SAFE_REF" >> $GITHUB_ENV
 
-      - name: Build and push ARM64 Docker image
+      - name: Build and push ARM64 image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile.arm64
-          push: true
           platforms: linux/arm64
+          push: true
           tags: |
-            ghcr.io/${{ env.REPO_LOWER }}:${{ env.SAFE_REF }}
-            ${{ github.ref_name == 'main' && format('ghcr.io/{0}:latest', env.REPO_LOWER) || '' }}
+            ghcr.io/${{ env.REPO_LOWER }}:${{ env.SAFE_REF }}-arm64
+            ${{ github.ref_name == 'main' && format('ghcr.io/{0}:latest-arm64', env.REPO_LOWER) || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -117,9 +111,13 @@ jobs:
   # Create multi-arch manifest
   # -------------------------
   manifest:
-    needs: [build-amd64, build-arm64]
+    if: ${{ github.event_name == 'workflow_dispatch' }} # only when both images are built
+    needs: [ build-amd64, build-arm64 ]
     runs-on: ubuntu-latest
     steps:
+      - name: Set up Docker Buildx (for imagetools)
+        uses: docker/setup-buildx-action@v3
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -127,15 +125,23 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Normalize repo and sanitize branch
+      - name: Normalize repo and sanitize ref
         run: |
           echo "REPO_LOWER=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
           SAFE_REF=$(echo "${GITHUB_REF_NAME}" | tr / -)
           echo "SAFE_REF=$SAFE_REF" >> $GITHUB_ENV
 
-      - name: Create multi-arch manifest
+      - name: Create multi-arch manifest for ref tag
         run: |
           docker buildx imagetools create \
-            ghcr.io/${{ env.REPO_LOWER }}:${{ env.SAFE_REF }} \
-            ghcr.io/${{ env.REPO_LOWER }}:${{ env.SAFE_REF }}@amd64 \
-            ghcr.io/${{ env.REPO_LOWER }}:${{ env.SAFE_REF }}@arm64
+            --tag ghcr.io/${{ env.REPO_LOWER }}:${{ env.SAFE_REF }} \
+            ghcr.io/${{ env.REPO_LOWER }}:${{ env.SAFE_REF }}-amd64 \
+            ghcr.io/${{ env.REPO_LOWER }}:${{ env.SAFE_REF }}-arm64
+
+      - name: Also tag :latest on main
+        if: ${{ github.ref_name == 'main' }}
+        run: |
+          docker buildx imagetools create \
+            --tag ghcr.io/${{ env.REPO_LOWER }}:latest \
+            ghcr.io/${{ env.REPO_LOWER }}:latest-amd64 \
+            ghcr.io/${{ env.REPO_LOWER }}:latest-arm64
