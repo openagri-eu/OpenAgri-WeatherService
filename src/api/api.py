@@ -121,7 +121,7 @@ async def get_thi_ld(
 
 
 # Forecasts suitable UAV flight conditions for all drones
-@data_router.get("/api/data/flight_forecast5/", response_model=List[FlightStatusForecastResponse])
+@data_router.get("/api/data/flight-forecast5/", response_model=List[FlightStatusForecastResponse])
 async def get_flight_forecast_for_all_uavs(
     request: Request,
     lat: float,
@@ -140,7 +140,7 @@ async def get_flight_forecast_for_all_uavs(
 
 # Forecasts suitable UAV flight conditions for all drones
 # Get results in OCSM
-@data_router.get("/api/linkeddata/flight_forecast5/")
+@data_router.get("/api/linkeddata/flight-forecast5/")
 async def get_flight_forecast_for_all_uavs_ld(
     request: Request,
     lat: float,
@@ -159,7 +159,7 @@ async def get_flight_forecast_for_all_uavs_ld(
 
 
 # Get flight forecast for a specifiv UAV model
-@data_router.get("/api/data/flight_forecast5/{uavmodel}/", response_model=List[FlightStatusForecastResponse])
+@data_router.get("/api/data/flight-forecast5/{uavmodel}/", response_model=List[FlightStatusForecastResponse])
 async def get_flight_forecast_for_uav(request: Request, lat: float, lon: float, uavmodel: str, payload: dict = Depends(authenticate_request),
 ):
     try:
@@ -173,7 +173,7 @@ async def get_flight_forecast_for_uav(request: Request, lat: float, lon: float, 
 
 # Get flight forecast for a specifiv UAV model
 # Get results in OCSM
-@data_router.get("/api/linkeddata/flight_forecast5/{uavmodel}/")
+@data_router.get("/api/linkeddata/flight-forecast5/{uavmodel}/")
 async def get_flight_forecast_for_uav_ld(request: Request, lat: float, lon: float, uavmodel: str, payload: dict = Depends(authenticate_request),
 ):
     try:
@@ -186,7 +186,7 @@ async def get_flight_forecast_for_uav_ld(request: Request, lat: float, lon: floa
 
 
 # Forecast suitability of spray conditions
-@data_router.get("/api/data/spray_forecast/", response_model=List[SprayForecastResponse])
+@data_router.get("/api/data/spray-forecast/", response_model=List[SprayForecastResponse])
 async def get_spray_forecast(request: Request, lat: float, lon: float, payload: dict = Depends(authenticate_request)):
     try:
         result = await request.app.weather_app.get_spray_forecast(lat, lon)
