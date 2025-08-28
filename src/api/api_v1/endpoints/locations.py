@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/locations", response_model=List[CachedLocationOut])
+@router.get("/locations/", response_model=List[CachedLocationOut])
 async def list_locations(payload: dict = Depends(authenticate_request)):
     docs = await CachedLocation.find_all().to_list()
     return [
@@ -32,7 +32,7 @@ async def list_locations(payload: dict = Depends(authenticate_request)):
         ) for doc in docs
     ]
 
-@router.get("/locations/by-coordinates", response_model=CachedLocationOut)
+@router.get("/locations/by-coordinates/", response_model=CachedLocationOut)
 async def get_location_by_coordinates(
     lat: float = Query(..., description="Latitude"),
     lon: float = Query(..., description="Longitude"),
@@ -52,7 +52,7 @@ async def get_location_by_coordinates(
         created_at=str(location.created_at)
     )
 
-@router.get("/locations/exists-in-radius")
+@router.get("/locations/exists-in-radius/")
 async def check_location_exists(
     lat: float,
     lon: float,
@@ -72,7 +72,7 @@ async def check_location_exists(
     )
 
 
-@router.post("/locations", response_model=List[CachedLocationOut])
+@router.post("/locations/", response_model=List[CachedLocationOut])
 async def add_locations(data: CachedLocationsIn, payload: dict = Depends(authenticate_request)):
     result = []
 
@@ -111,7 +111,7 @@ async def add_locations(data: CachedLocationsIn, payload: dict = Depends(authent
         ) for l in result
     ]
 
-@router.post("/locations/unique", response_model=List[CachedLocationOut])
+@router.post("/locations/unique/", response_model=List[CachedLocationOut])
 async def add_unique_locations(data: CachedLocationsIn, payload: dict = Depends(authenticate_request)):
     added = []
 
@@ -162,7 +162,7 @@ async def add_unique_locations(data: CachedLocationsIn, payload: dict = Depends(
         ) for d in added
     ]
 
-@router.delete("/locations/{location_id}")
+@router.delete("/locations/{location_id}/")
 async def delete_location(location_id: str, payload: dict = Depends(authenticate_request)):
     loc = await CachedLocation.get(location_id)
     if not loc:
