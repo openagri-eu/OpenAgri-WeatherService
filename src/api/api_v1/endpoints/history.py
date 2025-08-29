@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-@router.post("/hourly", response_model=HourlyResponse)
+@router.post("/hourly/", response_model=HourlyResponse)
 async def get_hourly_history(q: HourlyQuery, payload: dict = Depends(authenticate_request)):
     point = {"type": "Point", "coordinates": [q.lon, q.lat]}
 
@@ -70,7 +70,7 @@ async def get_hourly_history(q: HourlyQuery, payload: dict = Depends(authenticat
     )
 
 
-@router.post("/daily", response_model=DailyResponse)
+@router.post("/daily/", response_model=DailyResponse)
 async def get_daily_history(q: DailyQuery, payload: dict = Depends(authenticate_request)):
     point = {"type": "Point", "coordinates": [q.lon, q.lat]}
 
