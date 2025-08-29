@@ -25,10 +25,6 @@ WORKDIR /weather-service
 COPY --from=builder /usr/local/lib/python3.12/site-packages/ /usr/local/lib/python3.12/site-packages/
 COPY --from=builder /usr/local/bin/ /usr/local/bin/
 
-# ßshared objects *.so files and fonts for building er-diagram
-COPY --from=builder /usr/lib/*-linux-gnu /usr/lib/
-COPY --from=builder /usr/share/fonts /usr/share/fonts
-
 ARG USER_ID=1001
 ARG GROUP_ID=1001
 RUN groupadd -r openagri --gid $GROUP_ID && \
