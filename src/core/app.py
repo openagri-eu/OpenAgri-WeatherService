@@ -6,6 +6,7 @@ import os
 import fastapi
 from fastapi.openapi.utils import get_openapi
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.routing import APIRoute
 from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie, Document
 
@@ -73,18 +74,18 @@ class Application(fastapi.FastAPI):
             service_directory = await gk_client.gk_service_directory()
             logging.debug("Fetched service directory: %s", service_directory)
 
-            app_routes = utils.list_routes_from_routers([data_router])
+            app_routes = [route for route in app.routes if isinstance(route, APIRoute)]
             logging.debug("App routes: %s", app_routes)
 
             existing_endpoints = {entry["endpoint"]: entry for entry in service_directory}
             for route in app_routes:
-                relative_path = route["path"].lstrip("/")
+                relative_path = route.path.lstrip("/")
                 if relative_path not in existing_endpoints:
                     service_data = {
                         "base_url": f"http://{config.WEATHER_SRV_HOSTNAME}:{config.WEATHER_SRV_PORT}/",
                         "service_name": "weather_data",
                         "endpoint": relative_path,
-                        "methods": route["methods"],
+                        "methods": list(route.methods),
                     }
                     response = await gk_client.gk_service_register(service_data)
                     logging.info("Registered new service: %s", response)
