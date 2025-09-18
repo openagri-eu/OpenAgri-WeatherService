@@ -7,6 +7,8 @@
 Fast, reliable weather API with 5-day forecasts, agricultural indicators, UAV flight condition predictions, and spray condition forecasts.  
 Built with [FastAPI](https://fastapi.tiangolo.com/) for high performance and easy integration.
 
+**IMPORTANT**: This project is in an early stage. Some parts are stable, others need refactoring. We welcome contributors who want to help improve tests, documentation, and code quality.
+
 ---
 
 ## About
