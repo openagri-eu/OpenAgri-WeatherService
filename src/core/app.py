@@ -144,14 +144,15 @@ class Application(fastapi.FastAPI):
     def setup_fc_jobs(self):
 
         async def start_scheduler(app: Application):
-            app.state.fc_client = FarmCalendarServiceClient(app)
-            await app.state.fc_client.fetch_and_cache_locations()
-            await app.state.fc_client.fetch_and_cache_uavs()
-            await app.state.fc_client.fetch_or_create_thi_activity_type()
-            await app.state.fc_client.fetch_or_create_flight_forecast_activity_type()
-            await app.state.fc_client.fetch_or_create_spray_forecast_activity_type()
+            if config.GATEKEEPER_URL:
+                app.state.fc_client = FarmCalendarServiceClient(app)
+                await app.state.fc_client.fetch_and_cache_locations()
+                await app.state.fc_client.fetch_and_cache_uavs()
+                await app.state.fc_client.fetch_or_create_thi_activity_type()
+                await app.state.fc_client.fetch_or_create_flight_forecast_activity_type()
+                await app.state.fc_client.fetch_or_create_spray_forecast_activity_type()
 
-            await scheduler.start_scheduler(app)
+                await scheduler.start_scheduler(app)
 
         self.add_event_handler(event_type="startup", func=partial(start_scheduler, app=self))
         return
