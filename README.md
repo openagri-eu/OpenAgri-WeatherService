@@ -48,12 +48,30 @@ High-level next steps for the Weather Service:
 
 ### Installation
 
-Clone and run the service:
+## Clone repository:
 
 ```bash
 git clone https://github.com/openagri-eu/OpenAgri-WeatherService.git
 cd OpenAgri-WeatherService
 cp env.example .env
+```
+You will then need to grab an api key for OpenWeatherMap API
+
+## Getting an OpenWeather API Key
+
+Some features of Weather Service use the [OpenWeather API](https://openweathermap.org/api).  
+You’ll need your own API key to enable those calls.
+
+1. Create a free account at [openweathermap.org](https://home.openweathermap.org/users/sign_up).
+2. After signing up, go to your [API keys page](https://home.openweathermap.org/api_keys).
+3. Copy the **default key** or generate a new one.
+4. Add it to your `.env` file:
+   ```env
+   WEATHER_SRV_OPENWEATHERMAP_API_KEY=your-api-key-here
+   ```
+## Build & Run the service
+
+```bash
 docker compose up
 ```
 
@@ -66,37 +84,67 @@ To build local docker image:
 docker compose up --build
 ```
 
+## Authentication
+
+All API endpoints require a JWT.
+
+### Get a token
+Request a token using the dev credentials:
+
+```bash
+curl -X 'POST' \
+  'http://localhost:8010/api/v1/auth/token' \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  -d 'grant_type=&username=test&password=test&scope=&client_id=&client_secret='
+```
+
+**Response:**
+```bash
+{"jwt_token": "<JWT>"}
+```
+
+**Use the token**
+
+Pass the token as a Bearer header:
+```bash
+TOKEN="<paste JWT here>"
+curl -s "http://127.0.0.1:8010/api/data/weather"http://127.0.0.1:8010/api/data/forecast5/?lat=35.0&lon=33.23/?lat=35.0&lon=33.23" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+Tip: In Swagger UI (/docs), click Authorize and paste `Bearer <JWT>`.
+
 ## API Overview
 
 ### Forecasts
 
-- `GET /api/data/forecast5?lat={lat}&lon={lon}` – 5-day forecast (3-hour intervals, JSON)  
-- `GET /api/linkeddata/forecast5?lat={lat}&lon={lon}` – 5-day forecast (JSON-LD/OCSM)  
+- `GET /api/data/forecast5/?lat={lat}&lon={lon}` – 5-day forecast (3-hour intervals, JSON)  
+- `GET /api/linkeddata/forecast5/?lat={lat}&lon={lon}` – 5-day forecast (JSON-LD/OCSM)  
 
 ### Temperature-Humidity Index (THI)
 
-- `GET /api/data/thi?lat={lat}&lon={lon}` – THI (JSON)  
-- `GET /api/linkeddata/thi?lat={lat}&lon={lon}` – THI (JSON-LD/OCSM)  
+- `GET /api/data/thi/?lat={lat}&lon={lon}` – THI (JSON)  
+- `GET /api/linkeddata/thi/?lat={lat}&lon={lon}` – THI (JSON-LD/OCSM)  
 
 ### UAV Flight Forecast
 
-- `GET /api/data/flight_forecast5/{uavmodel}?lat={lat}&lon={lon}` – 5-day UAV forecast (by model)  
-- `GET /api/data/flight_forecast5?lat={lat}&lon={lon}&uavmodels={model}&status_filter={status}` – 5-day UAV forecast (filterable)  
+- `GET /api/data/flight_forecast5/{uavmodel}/?lat={lat}&lon={lon}` – 5-day UAV forecast (by model)  
+- `GET /api/data/flight_forecast5/?lat={lat}&lon={lon}&uavmodels={model}&status_filter={status}` – 5-day UAV forecast (filterable)  
 
 ### Current Weather
 
-- `GET /api/data/weather?lat={lat}&lon={lon}` – Current conditions (JSON)
+- `GET /api/data/weather/?lat={lat}&lon={lon}` – Current conditions (JSON)
 
 ### Historical weather data
 
-- `POST /api/v1/history/hourly/`
-- `POST /api/v1/history/daily`
+- `POST /api/v1/history/hourly/` - Hourly history
+- `POST /api/v1/history/daily/` - Daily history
 
 ---
 
 ## Documentation
 
-- Interactive API docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) (Swagger UI)  
+- Interactive API docs: [http://127.0.0.1:8010/docs](http://127.0.0.1:8010/docs) (Swagger UI)  
 - Full OpenAPI specification (JSON + OCSM JSON-LD) available via endpoints  
 - Use [Swagger Editor](https://editor.swagger.io/) to explore the API specification  
 
@@ -107,7 +155,7 @@ docker compose up --build
 ### Current Weather
 
 ```bash
-curl "http://127.0.0.1:8000/api/data/weather?lat=35.2&lon=33.3"
+curl "http://127.0.0.1:8010/api/data/weather?lat=35.2&lon=33.3"
 ```
 **Sample response:**
 
@@ -124,12 +172,12 @@ curl "http://127.0.0.1:8000/api/data/weather?lat=35.2&lon=33.3"
 ### 5-Day Forecast
 
 ```bash
-curl "http://127.0.0.1:8000/api/data/forecast5?lat=35.2&lon=33.3"
+curl "http://127.0.0.1:8010/api/data/forecast5?lat=35.2&lon=33.3"
 ```
 
 ### Daily history
 ```bash
-curl -X POST "http://127.0.0.1:8000/api/v1/history/daily" \
+curl -X POST "http://127.0.0.1:8010/api/v1/history/daily" \
   -H "Content-Type: application/json" \
   -d '{
     "lat": 35.0,
