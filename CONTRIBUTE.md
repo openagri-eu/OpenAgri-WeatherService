@@ -7,12 +7,12 @@ This project is licensed under the EUPL v1.2 and welcomes contributors of all ba
 
 ### Fork & Clone
 
-Fork the repository on GitHub.
+- Fork the repository on GitHub.
 
-Clone your fork locally:
+- Clone your fork locally:
 
     git clone https://github.com/your-username/weather-service.git
-cd weather-service
+    cd weather-service
 
 ### Create a Branch
 
