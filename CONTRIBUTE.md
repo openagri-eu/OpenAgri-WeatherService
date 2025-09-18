@@ -11,8 +11,8 @@ This project is licensed under the EUPL v1.2 and welcomes contributors of all ba
 
 - Clone your fork locally:
 
-    git clone https://github.com/your-username/weather-service.git
-    cd weather-service
+        git clone https://github.com/your-username/weather-service.git
+        cd weather-service
 
 ### Create a Branch
 
