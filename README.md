@@ -51,14 +51,20 @@ High-level next steps for the Weather Service:
 Clone and run the service:
 
 ```bash
-git clone https://github.com/openagri/weather-service.git
-cd weather-service
-docker compose up --build
+git clone https://github.com/openagri-eu/OpenAgri-WeatherService.git
+cd OpenAgri-WeatherService
+cp env.example .env
+docker compose up
 ```
 
 By default, the API is available at:
 
 http://127.0.0.1:8000
+
+To build local docker image:
+```bash
+docker compose up --build
+```
 
 ## API Overview
 
