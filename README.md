@@ -108,7 +108,7 @@ curl -X 'POST' \
 Pass the token as a Bearer header:
 ```bash
 TOKEN="<paste JWT here>"
-curl -s "http://127.0.0.1:8010/api/data/weather"http://127.0.0.1:8010/api/data/forecast5/?lat=35.0&lon=33.23/?lat=35.0&lon=33.23" \
+curl -s "http://127.0.0.1:8010/api/data/weather/?lat=35.0&lon=33.23/?lat=35.0&lon=33.23" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
