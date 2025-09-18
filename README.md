@@ -137,11 +137,13 @@ curl -X POST "http://127.0.0.1:8000/api/v1/history/daily" \
 
 ## Contributing
 
-We welcome contributions!
+We welcome first-time contributions!
 
 See our [Contributing Guide](CONTRIBUTE.md)
 
 You can also open an issue to discuss ideas.
+
+Weather Service is part of OpenAgri project, building tools for agriculture & climate data. Your contribution helps farmers and researchers.
 
 ## License
 
