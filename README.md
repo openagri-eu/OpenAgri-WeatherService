@@ -1,96 +1,150 @@
 # Weather Service
 
-🇪🇺 *This service was created in the context of OpenAgri project (https://horizon-openagri.eu/). OpenAgri has received funding from the EU’s Horizon Europe research and innovation programme under Grant Agreement no. 101134083.*
+[![License: EUPL-1.2](https://img.shields.io/badge/License-EUPL%201.2-blue.svg)](./LICENSE)
+![Python](https://img.shields.io/badge/python-3.12+-blue)
+![Docker](https://img.shields.io/badge/docker-ready-brightgreen)
 
-## Description
-Fast, reliable weather API providing 5-day forecasts, agricultural indicators like
-[Temperature-Humidity Index](https://www.pericoli.com/en/temperature-humidity-index-what-you-need-to-know-about-it/),
-UAV flight condition predictions, and spray condition forecasts. Built with FastAPI for high performance.
-Easy to integrate, deploy, and scale.
+Fast, reliable weather API with 5-day forecasts, agricultural indicators, UAV flight condition predictions, and spray condition forecasts.  
+Built with [FastAPI](https://fastapi.tiangolo.com/) for high performance and easy integration.
 
+---
 
-Project is fully functional, compatible with Python 3.12.
-Is built using [FastAPI](https://fastapi.tiangolo.com/) framework and served with [Uvicorn](https://www.uvicorn.org).
+## About
 
-The application is containerized using Docker. To install it please firstly install `docker`
+This service was created in the context of the [OpenAgri project](https://horizon-openagri.eu/), funded by the EU’s Horizon Europe research and innovation programme (Grant Agreement no. 101134083).
 
-You can follow [this guide](https://docs.docker.com/engine/install/ubuntu/) to install `docker` on Ubuntu.
+The Weather Service provides:
 
-## Requirements
-- git
-- docker
-- docker-compose
+- **Forecasts** – 5-day forecasts in JSON and JSON-LD (OCSM) formats  
+- **Current weather conditions** – temperature, humidity, wind, sky conditions  
+- **Agricultural indicators** – Temperature-Humidity Index (THI)  
+- **UAV flight forecasts** – 5-day predictions for UAV flight conditions (by model, filterable)  
+- **Spray condition forecasts** – support for agricultural spraying planning  
+- **Historical weather API** – daily and hourly values  
+- **Offline support** – cache last month’s history for specific locations  
+- **Containerized builds** – multi-arch Docker images (AMD64 and ARM64)  
 
-## Installation
-After installing `docker` you can simply run
+---
 
-```
+## Roadmap
+
+High-level next steps for the Weather Service:
+
+- [ ] Connect with local weather stations for improved ground-truth data  
+- [ ] Integrate with additional 3rd party weather APIs  
+- [ ] Enhance accuracy of weather, UAV, and spray forecasts by combining multiple data sources  
+
+---
+
+## Quickstart
+
+### Requirements
+
+- `git`
+- `docker`
+- `docker-compose`
+
+### Installation
+
+Clone and run the service:
+
+```bash
+git clone https://github.com/openagri/weather-service.git
+cd weather-service
 docker compose up --build
 ```
 
-to run the application.
+By default, the API is available at:
 
-The application is served by default on `http://127.0.0.1:8000`
+http://127.0.0.1:8000
+
+## API Overview
+
+### Forecasts
+
+- `GET /api/data/forecast5?lat={lat}&lon={lon}` – 5-day forecast (3-hour intervals, JSON)  
+- `GET /api/linkeddata/forecast5?lat={lat}&lon={lon}` – 5-day forecast (JSON-LD/OCSM)  
+
+### Temperature-Humidity Index (THI)
+
+- `GET /api/data/thi?lat={lat}&lon={lon}` – THI (JSON)  
+- `GET /api/linkeddata/thi?lat={lat}&lon={lon}` – THI (JSON-LD/OCSM)  
+
+### UAV Flight Forecast
+
+- `GET /api/data/flight_forecast5/{uavmodel}?lat={lat}&lon={lon}` – 5-day UAV forecast (by model)  
+- `GET /api/data/flight_forecast5?lat={lat}&lon={lon}&uavmodels={model}&status_filter={status}` – 5-day UAV forecast (filterable)  
+
+### Current Weather
+
+- `GET /api/data/weather?lat={lat}&lon={lon}` – Current conditions (JSON)
+
+### Historical weather data
+
+- `POST /api/v1/history/hourly/`
+- `POST /api/v1/history/daily`
+
+---
 
 ## Documentation
 
-**GET**
-```
-/api/data/forecast5?lat={latitude}&lon={longitude}
-```
-Retrieves a 5-day weather forecast with 3-hour intervals for a specific location. Response is in standard JSON format
+- Interactive API docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) (Swagger UI)  
+- Full OpenAPI specification (JSON + OCSM JSON-LD) available via endpoints  
+- Use [Swagger Editor](https://editor.swagger.io/) to explore the API specification  
 
-**GET**
-```
-/api/linkeddata/forecast5?lat={latitude}&lon={longitude}
-```
-Retrieves the same 5-day weather forecast with 3-hour intervals, but returns data in OCSM JSON-LD format
+---
 
-**GET**
-```
-/api/data/thi?lat={latitude}&lon={longitude}
-```
-Provides the Temperature Humidity Index for a specific location in standard JSON format
+## Example Requests
 
-**GET**
-```
-/api/linkeddata/thi?lat={latitude}&lon={longitude}
-```
-Provides the Temperature Humidity Index for a specific location in OCSM JSON-LD format
+### Current Weather
 
-**GET**
+```bash
+curl "http://127.0.0.1:8000/api/data/weather?lat=35.2&lon=33.3"
 ```
-/api/data/flight_forecast5/{uavmodel}?lat={latitude}&lon={longitude}
+**Sample response:**
+
+```json
+{
+  "temperature": 28.5,
+  "humidity": 62,
+  "wind_speed": 4.2,
+  "conditions": "Clear sky",
+  "timestamp": "2025-09-18T12:00:00Z"
+}
 ```
-Retrieves a 5-day flight forecast with 3-hour intervals for a specific UAV model at the given location.
-Response is in standard JSON format
 
-**GET**
+### 5-Day Forecast
+
+```bash
+curl "http://127.0.0.1:8000/api/data/forecast5?lat=35.2&lon=33.3"
 ```
-/api/data/flight_forecast5?lat={latitude}&lon={longitude}&uavmodels={model}&status_filter={status}
+
+### Daily history
+```bash
+curl -X POST "http://127.0.0.1:8000/api/v1/history/daily" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "lat": 35.0,
+    "lon": 33.2,
+    "start": "2025-07-01",
+    "end": "2025-07-03",
+    "variables": ["temperature_2m_max", "temperature_2m_min"],
+    "radius_km": 10
+  }'
 ```
-Retrieves a 5-day flight forecast with 3-hour intervals for UAVs at a specific location.
-You can filter results by UAV model types and status conditions. Response is in standard JSON format
 
+## Contributing
 
-**GET**
-```
-/api/data/weather?lat={latitude}&lon={longitude}
-```
-Returns current weather conditions for a specific location in standard JSON format
+We welcome contributions!
 
-Get a complete list of the OpenApi specification compatible with [OCSM](OCSM.md) and [JSON](API.md)
+See our [Contributing Guide](CONTRIBUTE.md)
 
-## Swagger Live Docs
-Use the [Online Swagger Editor](https://editor-next.swagger.io/?url=https://raw.githubusercontent.com/agstack/openagri-weather-service/refs/heads/main/openapi.yml) to visualise the current API specification and documentation.
-
-## Contribute
-
-Please contanct the repository maintainer.
+You can also open an issue to discuss ideas.
 
 ## License
 
-[European Union Public Licence](LICENSE)
+This project is licensed under the European Union Public Licence (EUPL) v1.2.
+See the [European Union Public Licence](LICENSE) file for details.
 
 
 
