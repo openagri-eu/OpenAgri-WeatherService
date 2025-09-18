@@ -57,9 +57,9 @@ cp env.example .env
 docker compose up
 ```
 
-By default, the API is available at:
+By default, the API documentation is available at:
 
-http://127.0.0.1:8000
+http://127.0.0.1:8010/docs
 
 To build local docker image:
 ```bash
