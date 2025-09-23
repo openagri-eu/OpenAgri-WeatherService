@@ -6,6 +6,7 @@ import os
 import fastapi
 from fastapi.openapi.utils import get_openapi
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.routing import APIRoute
 from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie, Document
 
@@ -13,11 +14,11 @@ from src.core import config
 from src.core.security import create_gk_jwt_tokens
 from src import utils
 from src.core.dao import Dao
-from src.api.api import api_router
-from src.api.auth import auth_router
+from src.api.api import data_router
+from src.api.api_v1.api import api_router
 from src.external_services.openweathermap import OpenWeatherMap
-from src.services.gatekeeper_service import GatekeeperServiceClient
-from src.services.farmcalendar_service import FarmCalendarServiceClient
+from src.openagri_services.gatekeeper_service import GatekeeperServiceClient
+from src.openagri_services.farmcalendar_service import FarmCalendarServiceClient
 import src.scheduler as scheduler
 
 
@@ -59,8 +60,8 @@ class Application(fastapi.FastAPI):
 
         async def add_router(app: Application):
             logger.debug("Setup routes")
-            app.include_router(api_router)
-            app.include_router(auth_router)
+            app.include_router(data_router)
+            app.include_router(api_router, prefix='/api/v1')
             logger.debug("Routes added!")
 
         async def register_routes(app: Application):
@@ -73,18 +74,18 @@ class Application(fastapi.FastAPI):
             service_directory = await gk_client.gk_service_directory()
             logging.debug("Fetched service directory: %s", service_directory)
 
-            app_routes = utils.list_routes_from_routers([api_router])
+            app_routes = [route for route in app.routes if isinstance(route, APIRoute)]
             logging.debug("App routes: %s", app_routes)
 
             existing_endpoints = {entry["endpoint"]: entry for entry in service_directory}
             for route in app_routes:
-                relative_path = route["path"].lstrip("/")
+                relative_path = route.path.lstrip("/")
                 if relative_path not in existing_endpoints:
                     service_data = {
                         "base_url": f"http://{config.WEATHER_SRV_HOSTNAME}:{config.WEATHER_SRV_PORT}/",
                         "service_name": "weather_data",
                         "endpoint": relative_path,
-                        "methods": route["methods"],
+                        "methods": list(route.methods),
                     }
                     response = await gk_client.gk_service_register(service_data)
                     logging.info("Registered new service: %s", response)
@@ -143,14 +144,15 @@ class Application(fastapi.FastAPI):
     def setup_fc_jobs(self):
 
         async def start_scheduler(app: Application):
-            app.state.fc_client = FarmCalendarServiceClient(app)
-            await app.state.fc_client.fetch_and_cache_locations()
-            await app.state.fc_client.fetch_and_cache_uavs()
-            await app.state.fc_client.fetch_or_create_thi_activity_type()
-            await app.state.fc_client.fetch_or_create_flight_forecast_activity_type()
-            await app.state.fc_client.fetch_or_create_spray_forecast_activity_type()
+            if config.GATEKEEPER_URL:
+                app.state.fc_client = FarmCalendarServiceClient(app)
+                await app.state.fc_client.fetch_and_cache_locations()
+                await app.state.fc_client.fetch_and_cache_uavs()
+                await app.state.fc_client.fetch_or_create_thi_activity_type()
+                await app.state.fc_client.fetch_or_create_flight_forecast_activity_type()
+                await app.state.fc_client.fetch_or_create_spray_forecast_activity_type()
 
-            scheduler.start_scheduler(app)
+                await scheduler.start_scheduler(app)
 
         self.add_event_handler(event_type="startup", func=partial(start_scheduler, app=self))
         return

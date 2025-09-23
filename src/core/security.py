@@ -5,7 +5,7 @@ from passlib.context import CryptContext
 import jwt
 
 from src.core import config
-from src.services.gatekeeper_service import GatekeeperServiceClient
+from src.openagri_services.gatekeeper_service import GatekeeperServiceClient
 
 pwd_context = CryptContext(schemes=[config.CRYPT_CONTEXT_SCHEME])
 
@@ -22,7 +22,7 @@ def create_access_token(data: Union[str, Any], expire_time) -> str:
     return encoded_jwt
 
 
-async def create_gk_jwt_tokens() -> Union[str, str]:
+async def create_gk_jwt_tokens() -> tuple[str, str]:
     token, refresh = await GatekeeperServiceClient.gk_get_jwt_token()
     return token, refresh
 
