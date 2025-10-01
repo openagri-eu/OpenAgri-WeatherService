@@ -81,6 +81,10 @@ class InteroperabilitySchema:
         },
         'precipitation': {
           'measurement': 'Precipitation',
+          'unit': 'Percent',
+        },
+        'rainfall_3h': {
+          'measurement': 'Rainfall_3h',
           'unit': 'Millimetre',
         },
     }
