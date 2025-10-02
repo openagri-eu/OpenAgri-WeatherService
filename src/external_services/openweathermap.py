@@ -46,7 +46,8 @@ class OpenWeatherMap():
                 'ambient_humidity': ['main', 'humidity'],
                 'wind_speed': ['wind', 'speed'],
                 'wind_direction': ['wind', 'deg'],
-                'precipitation': ['rain', '3h'],
+                'precipitation': ['pop'],
+                'rainfall_3h': ['rain', '3h'],
             }
         },
     }
@@ -372,7 +373,7 @@ class OpenWeatherMap():
                     extracted_element['period'][key] = utils.extract_value_from_dict_path(e, path)
                 for key, path in self.properties['extracted_schema']['measurements'].items():
                     extracted_element['measurements'][key] = utils.extract_value_from_dict_path(e, path)
-                    if not extracted_element['measurements'][key]:
+                    if extracted_element['measurements'][key] == None:
                         continue
                     prediction = await Prediction(
                         value=extracted_element['measurements'][key],
