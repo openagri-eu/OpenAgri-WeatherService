@@ -148,6 +148,66 @@ Tip: In Swagger UI (/docs), click Authorize and paste `Bearer <JWT>`.
 - Full OpenAPI specification (JSON + OCSM JSON-LD) available via endpoints  
 - Use [Swagger Editor](https://editor.swagger.io/) to explore the API specification  
 
+## Environment Variables
+
+All The following can be set in a `.env` file or as system environment variables. They can also be found in the 
+settings config file `src/core/config.py`. You can also check .env.example for getting skeleton of the env variables 
+to get started with
+
+### Database and Server settings
+
+We use MongoDB for storing historical weather data. Also MongoDb default port to be exposed is `27017`.
+
+- `WEATHER_SRV_DATABASE_URI` – Database connection URL (default: SQLite `mongodb://root:root@localhost:27017/`)
+- `WEATHER_SRV_DATABASE_NAME` - Database name (default: `openagridb`)
+- `WEATHER_SRV_HOST` – Host for the FastAPI server (default: `weathersrv`)
+- `WEATHER_SRV_PORT` – Port for the FastAPI server (default: `8000`)
+
+### Jwt and Security settings
+
+Which are typical default values for development and testing. For production, 
+you should change these to secure values and manage them safely. Gatekeeper for credentials is recommended.
+
+- `JWT_SECRET_KEY` – Secret key for signing JWTs (default: `some-key`)
+- `JWT_ALGORITHM` – Algorithm for JWT (default: `HS256`)
+- `CRYPT_CONTEXT_SCHEMES` – Password hashing schemes (default: `bcrypt`)
+- `ACCESS_TOKEN_EXPIRE_MINUTES` – Token expiry in minutes (default: `240`)
+
+- `GATEKEEPER_URL` – Gatekeeper service URL (default: ``)
+- `WEATHER_SRV_GATEKEEPER_USER` – Gatekeeper username (default: ``)
+- `WEATHER_SRV_GATEKEEPER_PASSWORD` – Gatekeeper password (default: ``)
+- `CURRENT_WEATHER_DATA_CACHE_TIME` - Time interval between location data is cached in hours, (default: `1`)
+
+### External API Keys
+
+Api keys for 3rd party services, Which the Weather Service uses to fetch weather data. 
+Create free accounts to get your own keys, or use Gatekeeper to manage them.
+
+- `WEATHER_SRV_OPENWEATHERMAP_API_KEY` – OpenWeatherMap API key (required for some features)
+- `HISTORY_WEATHER_PROVIDER` - Weather data provider for historical data (default: `openmeteo`)
+- `GATEKEEPER_FARM_CALENDAR_API` - Gatekeeper Farm Calendar API key (default: `http://farmcalendar:8002/api/v1/`)
+
+### FARM Calendar settings
+Integrations to Farm calendar service for information on this visit 
+[OpenAgri-FarmCalendar](https://github.com/agstack/OpenAgri-FarmCalendar),This service allows for manual recording of: 
+farmers operations, farmers observations, parcels properties and recording of farms’ assets.
+
+For the usage examples you can check the implementations in `src/schedular.py`, Which contains various schedules, 
+and appropriate debug messages.
+
+- `PUSH_THI_TO_FARMCALENDAR` - Boolean value to push data to farm calendar, (default: `True`)
+- `PUSH_FLIGHT_FORECAST_TO_FARMCALENDAR` - Push or Schedule UAV forcast to calendar, (default: `False`)
+- `PUSH_SPRAY_F_TO_FARMCALENDAR` - Push or Schedule spray forcast to calendar, (default: `False`)
+- `INTERVAL_HOURS_THI_TO_FARMCALENDAR` - Interval in hours between schedules, (default: `8`)
+
+### Testing and Misc
+
+Variables related to testings, server and Debug.
+
+- `LOGGING_LEVEL` - values can be `DEBUG` or `info` based on the testing level, (default: `INFO`)
+- `EXTRA_ALLOWED_HOSTS` - Allowed hosts for api communication, (Default: `*`)
+- `LOCATION_RADIUS_METERS`- The range from the current location to check the data for in meters, (default, `10000`)
+
 ---
 
 ## Example Requests
