@@ -22,7 +22,7 @@ The Weather Service provides:
 - **Agricultural indicators** – Temperature-Humidity Index (THI)  
 - **UAV flight forecasts** – 5-day predictions for UAV flight conditions (by model, filterable)  
 - **Spray condition forecasts** – support for agricultural spraying planning  
-- **Historical weather API** – daily and hourly values  
+- **Historical weather API** – daily and hourly values. You can find more info [here](history.md)
 - **Offline support** – cache last month’s history for specific locations  
 - **Containerized builds** – multi-arch Docker images (AMD64 and ARM64)  
 
