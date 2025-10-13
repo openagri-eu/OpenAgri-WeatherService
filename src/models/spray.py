@@ -3,6 +3,7 @@ from enum import Enum
 from typing import Dict
 
 from beanie import Document
+from pydantic import Field
 
 from src.models.point import GeoJSON
 
@@ -14,6 +15,7 @@ class SprayStatus(str, Enum):
 
 
 class SprayForecast(Document):
+    created_at: datetime = Field(default_factory=datetime.now)
     timestamp: datetime
     source: str
     location: GeoJSON
