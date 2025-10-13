@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import logging
 from typing import List, Optional, Union
 
@@ -245,6 +245,8 @@ class OpenWeatherMap():
 
 
         now = datetime.now(timezone.utc)
+        # Default cache time of UAV forecast
+        hours_ago = datetime.utcnow() - timedelta(hours=config.CURRENT_WEATHER_DATA_CACHE_TIME)
         results = []
 
         # Check if any model needs forecast data
@@ -253,8 +255,9 @@ class OpenWeatherMap():
             existing = await FlyStatus.find(And(
                 (FlyStatus.uav_model == model),
                 (FlyStatus.location == point.location),
-                (FlyStatus.timestamp > now))
-            ).to_list()
+                (FlyStatus.timestamp > now),
+                (FlyStatus.created_at >= hours_ago),
+            )).to_list()
             if not existing:
                 models_to_fetch.append(model)
             else:
@@ -304,10 +307,13 @@ class OpenWeatherMap():
 
         point = await self.dao.find_or_create_point(lat, lon)
         now = datetime.now()
+        # Default cache time of spray forecast
+        hours_ago = datetime.utcnow() - timedelta(hours=config.CURRENT_WEATHER_DATA_CACHE_TIME)
 
         results = await SprayForecast.find(And(
             SprayForecast.timestamp > now,
-            SprayForecast.location == point.location
+            SprayForecast.location == point.location,
+            SprayForecast.created_at >= hours_ago,
         )).to_list()
 
         if results:

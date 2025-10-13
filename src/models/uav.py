@@ -3,6 +3,7 @@ from enum import Enum
 from typing import Dict
 
 from beanie import Document
+from pydantic import Field
 
 from src.models.point import GeoJSON
 
@@ -13,6 +14,7 @@ class FlightStatus(str, Enum):
     MARGINAL = "MARGINAL"
 
 class FlyStatus(Document):
+    created_at: datetime = Field(default_factory=datetime.now)
     timestamp: datetime
     uav_model: str
     status: FlightStatus  # OK, NOT OK, MARGINAL
@@ -24,6 +26,7 @@ class FlyStatus(Document):
         use_enum_values = True
         json_schema_extra = {
             "example": {
+                "created_at": "2024-10-30T09:00:00+00:00",
                 "timestamp": "2024-11-01T09:00:00+00:00",
                 "uav_model": "DJI Mavic Air 2",
                 "status": "good",
