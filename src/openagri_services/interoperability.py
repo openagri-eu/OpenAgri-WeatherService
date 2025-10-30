@@ -25,6 +25,7 @@ class ObservationSchema(BaseModel):
     title: str
     details: str
     phenomenonTime: str
-    madeBySensor: Optional[MadeBySensorSchema] = None
+    madeBySensor: Optional[MadeBySensorSchema] = Field(default=None)
+    hasAgriParcel: Optional[str] = Field(default=None)
     hasResult: QuantityValueSchema
     observedProperty: str
