@@ -10,13 +10,17 @@ logger = logging.getLogger(__name__)
 class MadeBySensorSchema(BaseModel):
     name: str
 
-### **Result Schema (Used for Numeric Values)**
+### QuantityValue Schema (Used for Numeric Values)
 class QuantityValueSchema(BaseModel):
     id: str = Field(..., alias="@id")
     type: str = Field(default="QuantityValue", alias="@type")
     unit: Optional[str] = None
     hasValue: Optional[str] = None  # For flight forecast, e.g., "OK"
 
+### HasAgriParcel to define relation with parcel
+class HasAgriParcel:
+    id: str = Field(..., alias="@id")
+    type: str = Field(default="Parcel", alias="@type")
 
 class ObservationSchema(BaseModel):
     id: Optional[str] = Field(default=None, alias="@id")
@@ -26,6 +30,6 @@ class ObservationSchema(BaseModel):
     details: str
     phenomenonTime: str
     madeBySensor: Optional[MadeBySensorSchema] = Field(default=None)
-    hasAgriParcel: Optional[str] = Field(default=None)
+    hasAgriParcel: Optional[HasAgriParcel] = Field(default=None)
     hasResult: QuantityValueSchema
     observedProperty: str
