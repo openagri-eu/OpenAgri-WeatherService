@@ -18,7 +18,7 @@ class QuantityValueSchema(BaseModel):
     hasValue: Optional[str] = None  # For flight forecast, e.g., "OK"
 
 ### HasAgriParcel to define relation with parcel
-class HasAgriParcel:
+class HasAgriParcel(BaseModel):
     id: str = Field(..., alias="@id")
     type: str = Field(default="Parcel", alias="@type")
 

@@ -5,15 +5,12 @@ from datetime import datetime, timezone, date
 
 from pymongo import GEOSPHERE, IndexModel
 
-
-def get_utc_now():
-    return datetime.now(timezone.utc)
-
+from src import utils
 
 class CachedLocation(Document):
     name: Optional[str]
     location: dict = Field(..., description="GeoJSON Point: { type: 'Point', coordinates: [lon, lat] }")
-    created_at: datetime = Field(default_factory=get_utc_now)
+    created_at: datetime = Field(default_factory=utils.get_utc_now)
 
     class Settings:
         name = "cached_locations"
@@ -23,7 +20,7 @@ class CachedLocation(Document):
 
 class HourlyObservation(BaseModel):
     timestamp: datetime
-    values: Dict[str, Union[float | None]]
+    values: Dict[str, Union[float, None]]
 
 class HourlyHistory(Document):
     type: str = Field(default="historical")
@@ -33,6 +30,7 @@ class HourlyHistory(Document):
     observations: List[HourlyObservation]
     fetched_at: datetime
     source: str = "open-meteo"
+    created_at: datetime = Field(default_factory=utils.get_utc_now)
 
     class Settings:
         name = "weather_history_hourly"
@@ -42,7 +40,7 @@ class HourlyHistory(Document):
 
 class DailyObservation(BaseModel):
     date: date
-    values: Dict[str, Union[float | None]]
+    values: Dict[str, Union[float, None]]
 
 
 class DailyHistory(Document):
@@ -53,6 +51,7 @@ class DailyHistory(Document):
     observations: List[DailyObservation]
     fetched_at: datetime
     source: str = "open-meteo"
+    created_at: datetime = Field(default_factory=utils.get_utc_now)
 
     class Settings:
         name = "weather_history_daily"
