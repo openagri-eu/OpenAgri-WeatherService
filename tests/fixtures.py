@@ -99,8 +99,8 @@ def mock_flight_response():
     return FlightForecastListResponse(
         forecasts=[
             FlightStatusForecastResponse(
-                timestamp=datetime.utcnow().isoformat(),
-                uavmodel="DJI",
+                timestamp=utils.get_utc_now(),
+                uav_model="DJI",
                 status="SAFE",
                 weather_source="OpenWeatherMap",
                 weather_params={"temp": 10, "wind": 5, "precipitation": 0.1},

@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from src.external_services import openweathermap
-from src.models.point import Point
+from src.models.point import GeoJSON, Point
 from src.models.prediction import Prediction
 from tests.fixtures import openweathermap_srv
 
@@ -17,7 +17,9 @@ class TestOpenWeatherMap:
         self, openweathermap_srv
     ):
         openweathermap_srv.dao.find_predictions_for_point.return_value = []
-        openweathermap_srv.dao.find_or_create_point.return_value = Point(type="station")
+        openweathermap_srv.dao.find_or_create_point.return_value = Point(
+            type="station", location=GeoJSON(type="Point", coordinates=[0.0, 0.0])
+        )
 
         openweathermap_srv.parseForecast5dayResponse = AsyncMock(side_effect=Exception)
 
@@ -33,10 +35,14 @@ class TestOpenWeatherMap:
             timestamp=datetime.now(),
             data_type="weather",
             source="openweathermaps",
-            spatial_entity=Point(type="station"),
-        )
+            spatial_entity=Point(
+                type="station", location=GeoJSON(type="Point", coordinates=[0.0, 0.0])
+            )
+        ),
         openweathermap_srv.dao.find_predictions_for_point.return_value = [prediction]
-        openweathermap_srv.dao.find_point.return_value = Point(type="station")
+        openweathermap_srv.dao.find_point.return_value = Point(
+            type="station", location=GeoJSON(type="Point", coordinates=[0.0, 0.0])
+        )
 
         mock = MagicMock(return_value={"@context": {}})
         openweathermap.InteroperabilitySchema.predictions_to_jsonld = mock
