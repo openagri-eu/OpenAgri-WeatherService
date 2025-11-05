@@ -17,7 +17,7 @@ DATABASE_NAME = os.environ.get('WEATHER_SRV_DATABASE_NAME', 'openagridb')
 
 # Weather providers
 OPENWEATHERMAP_API_KEY = os.environ.get('WEATHER_SRV_OPENWEATHERMAP_API_KEY', '')
-HISTORY_WEATHER_PROVIDER = os.environ.get('HISTORY_WEATHER_PROVIDER', 'openmeteo')
+DEFAULT_HISTORY_WEATHER_PROVIDER = os.environ.get('HISTORY_WEATHER_PROVIDER', 'openmeteo')
 OM_CACHE_VARIABLES = {
     "daily": [
         "temperature_2m_min",
