@@ -26,7 +26,7 @@ class GeoJSON(Document):
     type: GeoJSONTypeEnum
     coordinates: List
 
-    class Config:
+    class Setttings:
         use_enum_values = True
 
 
@@ -34,9 +34,10 @@ class Point(Document):
     id: UUID = Field(default_factory=uuid4)
     title: Optional[str] = None
     type: PointTypeEnum
-    location: Optional[GeoJSON] = None
+    location: GeoJSON
 
-    class Config:
+    class Setttings:
+        name = "points"
         use_enum_values = True
         json_schema_extra = {
             "example": {
@@ -49,6 +50,3 @@ class Point(Document):
                 },
             }
         }
-
-    class Settings:
-        name = "points"

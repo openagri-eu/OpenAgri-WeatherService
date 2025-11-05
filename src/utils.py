@@ -25,6 +25,10 @@ from src.models.uav import FlightStatus, UAVModel
 logger = logging.getLogger(__name__)
 
 
+def get_utc_now():
+    return datetime.now(timezone.utc)
+
+
 def deepcopy_dict(d: dict) -> dict:
     return copy.deepcopy(d)
 
