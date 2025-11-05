@@ -4,8 +4,11 @@ import httpx
 from datetime import date, datetime, timezone
 from typing import Dict, List, Optional, Protocol, Union
 import os
+from datetime import date, datetime
+from typing import List, Optional, Protocol
 
 from src.core import config
+from src.schemas.forecast_data import ForecastObservationOut
 from src.schemas.history_data import DailyObservationOut, HourlyObservationOut
 
 
@@ -86,6 +89,11 @@ class OpenMeteoClient:
         }
 
         data = await self._fetch_data(params)
+        async with httpx.AsyncClient() as client:
+            response = await client.get(self.BASE_URL, params=params)
+            response.raise_for_status()
+            data = response.json()
+
         timestamps = data["daily"]["time"]
         results = []
 
@@ -169,6 +177,81 @@ class OpenMeteoClient:
         )
         return results
 
+class OpenWeatherMapClient(WeatherProvider):
+    FORECAST_BASE_URL = "http://api.openweathermap.org/data/2.5"
+
+    async def get_hourly_history(
+            self, lat: float, lon: float, start: date, end: date, variables: List[str]
+    ) -> List[HourlyObservationOut]:
+        raise NotImplementedError("Method not implemented")
+
+    async def get_daily_history(
+            self, lat: float, lon: float, start: date, end: date, variables: List[str]
+    ) -> List[DailyObservationOut]:
+        raise NotImplementedError("Method not implemented")
+
+    async def get_hourly_forecast(
+            #self, lat: float, lon: float, start: date, end: date, variables: List[str]
+            self, lat: float, lon: float, days: int = 5
+    ) -> List[HourlyObservationOut]:
+        """Get 5-day weather forecast from OpenWeatherMap.
+        
+        Args:
+            lat: Latitude of location
+            lon: Longitude of location
+            days: Number of days for forecast (default 5, max 16)
+            
+        Returns:
+            List of forecast observations
+            
+        Raises:
+            httpx.HTTPError: If API request fails
+        """
+        params = {
+            "lat": lat,
+            "lon": lon,
+            "units": "metric",
+            "appid": config.OPENWEATHERMAP_API_KEY
+        }
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{self.FORECAST_BASE_URL}/forecast", params=params)
+            response.raise_for_status()
+            data = response.json()
+
+        results = []
+        
+        # OpenWeatherMap variable mapping
+        var_mapping = {
+            "temperature_2m": ["main", "temp"],
+            "relative_humidity_2m": ["main", "humidity"],
+            "precipitation": ["rain", "3h"],
+            "wind_speed_10m": ["wind", "speed"],
+            "wind_direction_10m": ["wind", "deg"]
+        }
+
+        for item in data["list"]:
+            timestamp = datetime.fromtimestamp(item["dt"])
+            if start.isoformat() <= timestamp.date().isoformat() <= end.isoformat():
+                values = {}
+                for var in variables:
+                    if var in var_mapping:
+                        # Navigate nested dictionary using the mapping
+                        value = item
+                        for key in var_mapping[var]:
+                            value = value.get(key, None)
+                            if value is None:
+                                break
+                        if value is not None:
+                            values[var] = value
+
+                results.append(ForecastObservationOut(
+                    ts=timestamp,
+                    values=values
+                ))
+
+        return results
+
 
 # ---- Daily forecast (Open-Meteo Forecast API) ----
     # Variables for smart irrigation: precipitation, probability, temp range, ET0
@@ -242,11 +325,15 @@ class WeatherClientFactory:
     _provider: Optional[WeatherProvider] = None
 
     @classmethod
-    def get_provider(cls) -> WeatherProvider:
-        if cls._provider is None:
-            provider_name = config.HISTORY_WEATHER_PROVIDER
-            if provider_name == "openmeteo":
-                cls._provider = OpenMeteoClient()
-            else:
-                raise ValueError(f"Unsupported weather provider: {provider_name}")
+    def get_provider(cls, source=None) -> WeatherProvider:
+        provider_name = source
+        if provider_name is None:
+            provider_name = config.DEFAULT_HISTORY_WEATHER_PROVIDER
+
+        if provider_name == "openmeteo":
+            cls._provider = OpenMeteoClient()
+        elif provider_name == "openweathermap":
+            cls._provider = OpenWeatherMapClient()
+        else:
+            raise ValueError(f"Unsupported weather provider: {provider_name}")
         return cls._provider
