@@ -7,6 +7,7 @@ class CachedLocationIn(BaseModel):
     name: Optional[str]
     lat: float
     lon: float
+    radius_km: float = 10.0
 
 
 class CachedLocationsIn(BaseModel):
@@ -31,7 +32,7 @@ class HourlyQuery(BaseModel):
 
 class HourlyObservationOut(BaseModel):
     timestamp: datetime
-    values: Dict[str, Union[float | None]]
+    values: Dict[str, Union[float, None]]
 
 class HourlyResponse(BaseModel):
     location: Dict[str, float]
@@ -49,7 +50,7 @@ class DailyQuery(BaseModel):
 
 class DailyObservationOut(BaseModel):
     date: date
-    values: Dict[str, Union[float | None]]
+    values: Dict[str, Union[float, None]]
 
 
 class DailyResponse(BaseModel):
