@@ -69,7 +69,8 @@ class FarmCalendarServiceClient(MicroserviceClient):
         return self.sp_activity_type
 
     def _get_activity_type_id(self, jsonld: dict) -> str:
-        return jsonld.get("@graph", [{}])[0].get("@id", "")
+        graph = jsonld.get("@graph", [{}])
+        return graph[0].get("@id", "") if graph else ""
 
     # Fetch locations from FARM_CALENDAR_URI
     @backoff.on_exception(
