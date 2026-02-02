@@ -79,7 +79,7 @@ class Dao():
 
 
 # Find cached location within the defined radius
-async def find_location_nearby(lat: float, lon: float, radius_m: int):
+async def find_location_nearby(lat: float, lon: float, radius_m: int = config.LOCATION_RADIUS_METERS) -> Optional[CachedLocation]:
     point = {"type": "Point", "coordinates": [lon, lat]}
     return await CachedLocation.find_one({
         "location": {

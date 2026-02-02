@@ -116,7 +116,7 @@ async def add_unique_locations(data: CachedLocationsIn, payload: dict = Depends(
     added = []
 
     for loc in data.locations:
-        existing = await dao.find_location_nearby(loc.lat, loc.lon, config.LOCATION_RADIUS_METERS)
+        existing = await dao.find_location_nearby(loc.lat, loc.lon, int(loc.radius_km * 1000))
         if existing:
             continue  # Skip nearby duplicates
 
