@@ -87,8 +87,7 @@ class FarmCalendarServiceClient(MicroserviceClient):
             lat = parcel.get("location", {}).get("lat")
             lon = parcel.get("location", {}).get("long")
             identifier = parcel.get("identifier", "Unknown")
-            logger.debug(f"Processing parcel {identifier} at lat: {lat}, lon: {lon}")
-            
+
             # Extract farm name from farm URN reference
             farm_ref = parcel.get("farm", {})
             farm_id = farm_ref.get("@id", "")
@@ -124,6 +123,7 @@ class FarmCalendarServiceClient(MicroserviceClient):
                         "identifier": identifier,
                         "farm_name": farm_name
                     })
+            logger.debug(f"Processing parcel {identifier} at lat: {lat}, lon: {lon}")
         return locations
 
     # Extract first coordinate pair (lat, lon) from WKT POLYGON
