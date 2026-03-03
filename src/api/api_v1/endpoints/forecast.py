@@ -119,7 +119,7 @@ async def get_hourly_spray_forecast(
         temp = v.get("temperature_2m")
         humidity = v.get("relative_humidity_2m")
         wind_ms = v.get("wind_speed_10m")
-        precipitation = v.get("rain", 0.0) or 0.0
+        precipitation = v.get("precipitation", 0.0) or 0.0
 
         # Skip if essential values are missing
         if temp is None or humidity is None or wind_ms is None:
