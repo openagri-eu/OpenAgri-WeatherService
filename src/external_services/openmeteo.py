@@ -11,7 +11,6 @@ from src.schemas.history_data import DailyObservationOut, HourlyObservationOut
 
 logger = logging.getLogger(__name__)
 
-
 class WeatherProvider(Protocol):
     async def get_hourly_history(
             self, lat: float, lon: float, start: date, end: date, variables: List[str]
