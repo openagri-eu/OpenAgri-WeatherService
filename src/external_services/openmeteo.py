@@ -27,6 +27,11 @@ class WeatherProvider(Protocol):
     ) -> List[HourlyObservationOut]:
         ...
 
+    async def get_daily_forecast(
+            self, lat: float, lon: float, days: int = 16
+    ) -> List[DailyObservationOut]:
+        ...
+
 
 class OpenMeteoClient:
     BASE_URL = "https://archive-api.open-meteo.com/v1/archive"
@@ -161,6 +166,73 @@ class OpenMeteoClient:
         logger.info(
             "Open-Meteo hourly forecast: %d hours for (%s, %s), %d days",
             len(results), lat, lon, days,
+        )
+        return results
+
+
+# ---- Daily forecast (Open-Meteo Forecast API) ----
+    # Variables for smart irrigation: precipitation, probability, temp range, ET0
+    DAILY_FORECAST_VARIABLES = [
+        "precipitation_sum",
+        "precipitation_probability_max",
+        "temperature_2m_min",
+        "temperature_2m_max",
+        "et0_fao_evapotranspiration",
+    ]
+
+    async def get_daily_forecast(
+        self, lat: float, lon: float, days: int = 16
+    ) -> List[DailyObservationOut]:
+        """
+        Fetch daily weather forecast for irrigation planning from the
+        Open-Meteo **Forecast** API.
+
+        Returns one :class:`DailyObservationOut` per day with:
+        - precipitation_sum (mm)
+        - precipitation_probability_max (%)
+        - temperature_2m_min (°C)
+        - temperature_2m_max (°C)
+        - et0_fao_evapotranspiration (mm)
+
+        Parameters
+        ----------
+        lat, lon : float
+            Location coordinates.
+        days : int
+            Number of forecast days (1–16, default 16).
+        """
+        params = {
+            "latitude": lat,
+            "longitude": lon,
+            "daily": ",".join(self.DAILY_FORECAST_VARIABLES),
+            "timezone": "auto",
+            "forecast_days": days,
+        }
+
+        data = await self._fetch_data(params, url=self.FORECAST_URL)
+
+        if "daily" not in data:
+            logger.warning("Open-Meteo returned no daily forecast data")
+            return []
+
+        timestamps = data["daily"]["time"]
+        results: List[DailyObservationOut] = []
+
+        for i, t in enumerate(timestamps):
+            values: Dict[str, Union[float, None]] = {}
+            for var in self.DAILY_FORECAST_VARIABLES:
+                if var in data["daily"]:
+                    values[var] = data["daily"][var][i]
+            results.append(
+                DailyObservationOut(
+                    date=date.fromisoformat(t),
+                    values=values,
+                )
+            )
+
+        logger.info(
+            "Open-Meteo daily forecast: %d days for (%s, %s)",
+            len(results), lat, lon,
         )
         return results
 

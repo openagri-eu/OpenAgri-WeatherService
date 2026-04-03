@@ -22,7 +22,7 @@ from fastapi import APIRouter, Query, HTTPException
 
 from src.external_services.openmeteo import WeatherClientFactory
 from src.schemas.point import GeoJSONOut
-from src.schemas.history_data import HourlyObservationOut, HourlyResponse
+from src.schemas.history_data import DailyResponse, HourlyObservationOut, HourlyResponse
 from src.schemas.spray import SprayForecastResponse
 from src.models.spray import SprayStatus
 from src import utils
@@ -165,3 +165,50 @@ async def get_hourly_spray_forecast(
         )
 
     return results
+
+
+# ---------------------------------------------------------------------------
+# Daily irrigation forecast
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/daily/irrigation/",
+    response_model=DailyResponse,
+    summary="Daily weather forecast for smart irrigation (7–16 days)",
+)
+async def get_daily_irrigation_forecast(
+    lat: float = Query(..., description="Latitude", example=38.25),
+    lon: float = Query(..., description="Longitude", example=21.74),
+    days: int = Query(
+        16, ge=1, le=16,
+        description="Number of forecast days (including today)",
+    ),
+):
+    """
+    Returns **daily** weather data optimized for smart irrigation systems.
+
+    Variables returned per day:
+    - **precipitation_sum** – total precipitation (mm)
+    - **precipitation_probability_max** – maximum precipitation probability (%)
+    - **temperature_2m_min** – minimum temperature (°C)
+    - **temperature_2m_max** – maximum temperature (°C)
+    - **et0_fao_evapotranspiration** – reference evapotranspiration ET₀ (mm)
+
+    Data comes from the Open-Meteo Forecast API.
+    Supports up to 16 days of forecast.
+    """
+    client = WeatherClientFactory.get_provider()
+    try:
+        results = await client.get_daily_forecast(lat, lon, days=days)
+    except Exception as e:
+        logger.error(f"Error fetching daily forecast from Open-Meteo: {e}")
+        raise HTTPException(
+            status_code=502,
+            detail="Could not retrieve daily forecast from Open-Meteo",
+        ) from e
+
+    return DailyResponse(
+        location={"lat": lat, "lon": lon},
+        data=results,
+        source="open-meteo",
+    )
