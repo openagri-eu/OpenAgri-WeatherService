@@ -85,3 +85,4 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get('ACCESS_TOKEN_EXPIRE_MINUTES', 
 KEY = os.environ.get('JWT_KEY', 'some-key')
 ALGORITHM = os.environ.get('ALGORITHM', 'HS256')
 CRYPT_CONTEXT_SCHEME = os.environ.get('CRYPT_CONTEXT_SCHEME', 'bcrypt')
+DISABLE_AUTH = os.environ.get('DISABLE_AUTH', 'false').lower() == 'true'

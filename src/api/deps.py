@@ -7,10 +7,17 @@ from pydantic import ValidationError
 from src.core import config
 
 
-security_scheme = HTTPBearer()
+security_scheme = HTTPBearer(auto_error=False)
 
 
 async def authenticate_request(credentials: HTTPAuthorizationCredentials = Depends(security_scheme)) -> str: # type: ignore
+    if config.DISABLE_AUTH:
+        return {}
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Could not validate credentials",
+        )
     try:
         token = credentials.credentials
         decoded_jwt_token = jwt.decode(
