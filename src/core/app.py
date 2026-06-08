@@ -156,6 +156,10 @@ class Application(fastapi.FastAPI):
                     await app.state.fc_client.fetch_or_create_spray_forecast_activity_type()
 
                 await scheduler.start_scheduler(app)
+            else:
+                # No GateKeeper configured: still restart sliding window refresh
+                # jobs for any locations that were cached before this restart.
+                await scheduler.schedule_cached_location_jobs()
 
         self.add_event_handler(event_type="startup", func=partial(start_scheduler, app=self))
         return

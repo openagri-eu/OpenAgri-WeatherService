@@ -118,6 +118,28 @@ async def refresh_machines_and_schedule(app):
 
 
 
+async def schedule_cached_location_jobs():
+    """Re-register update_sliding_window jobs for all cached locations.
+
+    Called on startup regardless of GateKeeper configuration so that
+    the daily history-window refresh survives application restarts.
+    """
+    locations = await CachedLocation.find_all().to_list()
+    for loc in locations:
+        lat, lon = loc.location["coordinates"][1], loc.location["coordinates"][0]
+        scheduler.add_job(
+            update_sliding_window,
+            trigger="cron",
+            hour=23,
+            args=[lat, lon, config.OM_CACHE_VARIABLES],
+            id=f"update_sliding_{lat}_{lon}",
+            replace_existing=True,
+        )
+        logging.debug("Scheduled sliding window update for %s, %s", lat, lon)
+    if not scheduler.running:
+        scheduler.start()
+
+
 async def start_scheduler(app: FastAPI):
 
     if config.PUSH_THI_ALERTS_TO_FARMCALENDAR:
@@ -130,5 +152,5 @@ async def start_scheduler(app: FastAPI):
     # Refresh machines and reschedule every 24 hours
     scheduler.add_job(refresh_machines_and_schedule, "interval", minutes=5, args=[app])
 
-
-    scheduler.start()
+    if not scheduler.running:
+        scheduler.start()
