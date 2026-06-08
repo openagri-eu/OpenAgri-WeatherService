@@ -6,7 +6,7 @@ from src.external_services.openmeteo import WeatherClientFactory
 
 async def fetch_and_cache_last_month(lat: float, lon: float, variables: dict[str, list[str]]):
     start = date.today() - timedelta(days=32)
-    end = date.today() - timedelta(days=2)
+    end = date.today()
     provider = WeatherClientFactory.get_provider()
 
     # DAILY
