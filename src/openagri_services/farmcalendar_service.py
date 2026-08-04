@@ -14,7 +14,7 @@ from src.core import config
 from src import utils
 from src.core.exceptions import RefreshJWTTokenError
 from src.openagri_services.base import MicroserviceClient
-from src.openagri_services.interoperability import MadeBySensorSchema, ObservationSchema, QuantityValueSchema, AlertSchema, RelatedObservation
+from src.openagri_services.interoperability import HasAgriParcel, MadeBySensorSchema, ObservationSchema, QuantityValueSchema, AlertSchema, RelatedObservation
 
 
 logger = logging.getLogger(__name__)
@@ -92,6 +92,7 @@ class FarmCalendarServiceClient(MicroserviceClient):
             lat = parcel.get("location", {}).get("lat")
             lon = parcel.get("location", {}).get("long")
             identifier = parcel.get("identifier", "Unknown")
+            parcel_id = parcel.get("@id", "")
 
             # Extract farm name from farm URN reference
             farm_ref = parcel.get("farm", {})
@@ -113,12 +114,13 @@ class FarmCalendarServiceClient(MicroserviceClient):
                         raise
                     logger.warning(f"Could not fetch farm name for {farm_id}: {e}")
 
-            
+
             if lat is not None and lon is not None:
                 locations.append({
                     "lat": lat,
                     "lon": lon,
                     "identifier": identifier,
+                    "parcel_id": parcel_id,
                     "farm_name": farm_name
                 })
             else:
@@ -130,6 +132,7 @@ class FarmCalendarServiceClient(MicroserviceClient):
                         "lat": coords[0],
                         "lon": coords[1],
                         "identifier": identifier,
+                        "parcel_id": parcel_id,
                         "farm_name": farm_name
                     })
             logger.debug(f"Processing parcel {identifier} at lat: {lat}, lon: {lon}")
@@ -177,6 +180,7 @@ class FarmCalendarServiceClient(MicroserviceClient):
         lon = location_info["lon"]
         farm_name = location_info.get("farm_name", "Unknown Farm")
         parcel_identifier = location_info.get("identifier", "Unknown")
+        parcel_id = location_info.get("parcel_id", "")
 
         weather_data = await self.app.weather_app.save_weather_data_thi(lat, lon)
         # Get current unix timestamp
@@ -184,14 +188,16 @@ class FarmCalendarServiceClient(MicroserviceClient):
         timezone = weather_data.data['timezone']
         observation = ObservationSchema(
             activityType=self.thi_activity_type,
-            title=f"{farm_name}: {parcel_identifier} - THI: {str(round(weather_data.thi, 2))}",
+            title=f"{parcel_identifier[:12]}...: THI {str(round(weather_data.thi, 2))}" \
+                if len(parcel_identifier) > 12 else f"{parcel_identifier}: THI {str(round(weather_data.thi, 2))}",
             details=(
                 f"Temperature Humidity Index on {utils.convert_timestamp_to_string(current_timestamp, timezone)}\n"
                 f"Farm: {farm_name}\n"
                 f"Parcel Identifier: {parcel_identifier}\n"
                 f"Location: lat {lat}, lon {lon}"
             ),
-            phenomenonTime=utils.convert_timestamp_to_string(current_timestamp, timezone, iso=True),
+            phenomenonTime=utils.convert_timestamp_to_string(current_timestamp, tz_offset=0, iso=True),   # tz_offset=0 to ensure UTC timestamp
+            hasAgriParcel=HasAgriParcel(**{"@id": parcel_id.replace("FarmParcel", "Parcel")}),
             hasResult=QuantityValueSchema(
                 **{
                     "@id": f"urn:farmcalendar:QuantityValue:{uuid4()}",
@@ -216,6 +222,7 @@ class FarmCalendarServiceClient(MicroserviceClient):
         lon = location_info["lon"]
         farm_name = location_info.get("farm_name", "Unknown Farm")
         parcel_identifier = location_info.get("identifier", "Unknown")
+        parcel_id = location_info.get("parcel_id", "")
 
         fly_statuses = await self.app.weather_app.ensure_forecast_for_uavs_and_location(lat, lon, uavmodels, return_existing=False)
         for fly_status in fly_statuses:
@@ -233,6 +240,7 @@ class FarmCalendarServiceClient(MicroserviceClient):
                 ),
                 phenomenonTime=phenomenon_time,
                 madeBySensor=MadeBySensorSchema(name=fly_status.uav_model),
+                hasAgriParcel=HasAgriParcel(**{"@id": parcel_id.replace("FarmParcel", "Parcel")}),
                 hasResult=QuantityValueSchema(
                     **{
                         "@id": f"urn:farmcalendar:QuantityValue:{uuid4()}",
@@ -257,7 +265,7 @@ class FarmCalendarServiceClient(MicroserviceClient):
         lon = location_info["lon"]
         farm_name = location_info.get("farm_name", "Unknown Farm")
         parcel_identifier = location_info.get("identifier", "Unknown")
-        
+        parcel_id = location_info.get("parcel_id", "")
         spray_forecasts = await self.app.weather_app.ensure_spray_forecast_for_location(lat, lon, return_existing=False)
 
         for sf in spray_forecasts:
@@ -274,6 +282,7 @@ class FarmCalendarServiceClient(MicroserviceClient):
                     f"{json.dumps(sf.detailed_status, indent=2)}"
                 ),
                 phenomenonTime=phenomenon_time,
+                hasAgriParcel=HasAgriParcel(**{"@id": parcel_id.replace("FarmParcel", "Parcel")}),
                 hasResult=QuantityValueSchema(
                     **{
                         "@id": f"urn:farmcalendar:QuantityValue:{uuid4()}",
@@ -357,6 +366,7 @@ class FarmCalendarServiceClient(MicroserviceClient):
         lon = location_info["lon"]
         farm_name = location_info.get("farm_name", "Unknown Farm")
         parcel_identifier = location_info.get("identifier", "Unknown")
+        parcel_id = location_info.get("parcel_id", "")
 
         weather_data = await self.app.weather_app.save_weather_data_thi(lat, lon)
         severity = utils.classify_thi_severity(weather_data.thi)
@@ -378,7 +388,8 @@ class FarmCalendarServiceClient(MicroserviceClient):
         thi_rounded = round(weather_data.thi, 2)
         observation = ObservationSchema(
             activityType=self.thi_activity_type,
-            title=f"{farm_name}: {parcel_identifier} - THI: {thi_rounded}",
+            title=f"{parcel_identifier[:12]}...: THI {str(round(weather_data.thi, 2))}" \
+                    if len(parcel_identifier) > 12 else f"{parcel_identifier}: THI {str(round(weather_data.thi, 2))}",
             details=(
                 f"Temperature Humidity Index on {utils.convert_timestamp_to_string(current_timestamp, tz_offset)}\n"
                 f"Farm: {farm_name}\n"
@@ -386,6 +397,7 @@ class FarmCalendarServiceClient(MicroserviceClient):
                 f"Location: lat {lat}, lon {lon}"
             ),
             phenomenonTime=utils.convert_timestamp_to_string(current_timestamp, tz_offset, iso=True),
+            hasAgriParcel=HasAgriParcel(**{"@id": parcel_id.replace("FarmParcel", "Parcel")}),
             hasResult=QuantityValueSchema(
                 **{
                     "@id": f"urn:farmcalendar:QuantityValue:{uuid4()}",
@@ -402,7 +414,7 @@ class FarmCalendarServiceClient(MicroserviceClient):
 
         alert = AlertSchema(
             activityType=activity_type_id,
-            title=f"THI Heat Stress Alert [{severity.upper()}] — {farm_name}: {parcel_identifier} (THI: {thi_rounded})",
+            title=f"THI Heat Stress Alert [{severity.upper()}] — {parcel_identifier} (THI: {thi_rounded})",
             details=(
                 f"Temperature Humidity Index: {thi_rounded}\n"
                 f"Severity: {severity}\n"

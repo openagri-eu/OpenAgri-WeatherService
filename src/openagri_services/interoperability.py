@@ -15,7 +15,7 @@ class QuantityValueSchema(BaseModel):
     id: str = Field(..., alias="@id")
     type: str = Field(default="QuantityValue", alias="@type")
     unit: Optional[str] = None
-    hasValue: Optional[str] = None  # For flight forecast, e.g., "OK"
+    hasValue: str  # For flight forecast, e.g., "OK"
 
 ### HasAgriParcel to define relation with parcel
 class HasAgriParcel(BaseModel):
@@ -35,7 +35,7 @@ class ObservationSchema(BaseModel):
     details: str
     phenomenonTime: str
     madeBySensor: Optional[MadeBySensorSchema] = Field(default=None)
-    hasAgriParcel: Optional[HasAgriParcel] = Field(default=None)
+    hasAgriParcel: HasAgriParcel
     hasResult: QuantityValueSchema
     observedProperty: str
 
