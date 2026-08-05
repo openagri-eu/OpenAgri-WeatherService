@@ -369,20 +369,6 @@ class FarmCalendarServiceClient(MicroserviceClient):
         parcel_id = location_info.get("parcel_id", "")
 
         weather_data = await self.app.weather_app.save_weather_data_thi(lat, lon)
-        severity = utils.classify_thi_severity(weather_data.thi)
-        if severity is None:
-            logger.debug(
-                "THI %s below alert threshold for %s/%s — no alert posted",
-                weather_data.thi, farm_name, parcel_identifier
-            )
-            return
-
-        activity_type_id = self.thi_alert_activity_type_ids.get(severity)
-        if not activity_type_id:
-            logger.warning("No cached activity type id for severity '%s', skipping alert", severity)
-            return
-
-        # Post a linked THI observation first; its @id is required by the Alert serializer
         current_timestamp = int(time.time())
         tz_offset = weather_data.data['timezone']
         thi_rounded = round(weather_data.thi, 2)
@@ -407,6 +393,20 @@ class FarmCalendarServiceClient(MicroserviceClient):
             observedProperty="temperature_humidity_index"
         )
         obs_response = await self.post('/Observations/', json=observation.model_dump(by_alias=True, exclude_none=True))
+
+        severity = utils.classify_thi_severity(weather_data.thi)
+        if severity is None:
+            logger.debug(
+                "THI %s below alert threshold for %s/%s — observation posted, no alert posted",
+                weather_data.thi, farm_name, parcel_identifier
+            )
+            return
+
+        activity_type_id = self.thi_alert_activity_type_ids.get(severity)
+        if not activity_type_id:
+            logger.warning("No cached activity type id for severity '%s', skipping alert", severity)
+            return
+
         obs_id = self._get_graph_id(obs_response)
 
         now = datetime.now(timezone.utc)
